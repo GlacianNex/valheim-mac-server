@@ -5,11 +5,11 @@ enum SettingsHelp {
         "label":"A unique name shown only in this monitor. Changing it does not rename your world or change the public server name.",
         "name":"The name players see in Valheim's server browser. It must not contain the server password.",
         "world":"Optional for a fresh world: leave blank to generate a filename from the profile name (for example, Friday Vikings becomes Friday_Vikings). You can enter your own filename instead. For imports, use the save's folder name or .db/.fwl filename without its extension. New profiles have separate save folders. Existing world filenames are locked to prevent accidental world changes. For a chosen seed, create a world in Valheim and import it.",
-        "password":"Required when joining this server. Minimum 5 characters. Stored in the local profile file and supplied to Valheim at startup.",
+        "password":"Optional for unlisted servers: blank means anyone with the address or join code can connect without a password. Listed servers require at least 5 characters. Stored in the local profile file and supplied to Valheim at startup.",
         "port":"UDP base port, 1–65534; Valheim also uses the following port. Default: 2456 and 2457. Steam-only remote play requires forwarding both ports to this Mac.",
         "public":"Checked: advertise in the server browser. Unchecked: hide from the list; direct connections remain possible. This is not an access-control setting.",
         "crossplay":"Checked: use PlayFab relay and allow supported platforms; no router forwarding is normally needed. Use a join code or public address, not LAN/loopback IP. Unchecked: use Steam networking; Steam clients only.",
-        "instanceid":"Optional PlayFab instance identifier. Useful for distinguishing multiple servers on one machine/network. This monitor runs one profile at a time, so it can normally stay blank.",
+        "instanceid":"Optional PlayFab instance identifier. Each running server must use a different UDP port pair. An instance ID can additionally distinguish PlayFab servers on the same machine/network; leave blank unless you need an explicit identifier.",
         "saveinterval":"Seconds between automatic world saves. Default 1800 = 30 minutes. A clean Save & Stop also saves the world. Shorter intervals can create more frequent disk activity.",
         "backups":"Number of automatic world backups retained by Valheim. Default 4; these are separate from ordinary saves.",
         "backupshort":"Interval for the short-term backup, in seconds. Default 7200 = 2 hours.",
@@ -38,6 +38,12 @@ enum SettingsHelp {
         "Portals":["casual":"Allow restricted items, including metals","hard":"Disable portals when a boss is active","veryhard":"Disable all portals"],
         "preset":["Normal":"Normal — reset to standard rules","Casual":"Casual — relaxed survival","Easy":"Easy — easier combat and deaths","Hard":"Hard — tougher combat and deaths","Hardcore":"Hardcore — permanent death losses","Immersive":"Immersive — no map or portals","Hammer":"Hammer — building without material costs"]
     ]
+    static func savedTitle(_ key: String, _ raw: String) -> String {
+        if raw == "default" {
+            return ["Combat":"Normal — 100% damage", "DeathPenalty":"Normal — 5% skill loss", "Resources":"1× resources", "Raids":"Normal", "Portals":"Normal item restrictions"][key] ?? "Normal"
+        }
+        return title(key, raw)
+    }
     static func title(_ key:String,_ raw:String)->String {
         if raw.isEmpty {return key=="preset" ? "Keep world settings (no preset)" : "Keep world / preset value"}
         let compact: [String:[String:String]] = [

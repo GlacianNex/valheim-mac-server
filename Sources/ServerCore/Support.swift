@@ -8,17 +8,27 @@ public struct MonitorError: LocalizedError {
 }
 public struct Paths {
     public let root: URL
+    public let profileID: String?
+    public let usesLegacyState: Bool
     public static var defaultRoot: URL { FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/Valheim Server Monitor").standardizedFileURL }
-    public init(root: URL? = nil) {
+    public init(root: URL? = nil, profileID: String? = nil, usesLegacyState: Bool = false) {
+        self.profileID = profileID; self.usesLegacyState = usesLegacyState
         self.root = (root ?? ProcessInfo.processInfo.environment["VSM_HOME"].map { URL(fileURLWithPath: $0) }
             ?? Self.defaultRoot).standardizedFileURL
     }
-    public var logs: URL { root.appendingPathComponent("logs") }
+    public var logs: URL { stateRoot.appendingPathComponent("logs") }
+    public var stateRoot: URL {
+        guard let profileID, !usesLegacyState else { return root }
+        return root.appendingPathComponent("servers/" + profileID)
+    }
     public var server: URL { root.appendingPathComponent("runtime/server") }
     public var executable: URL { server.appendingPathComponent("valheim_server/Valheim") }
-    public func file(_ name: String) -> URL { root.appendingPathComponent(name) }
+    public func file(_ name: String) -> URL {
+        let stateFiles: Set<String> = ["service.lock", "running.json", "start-request", "stop-request", "latest-log", "last-error.txt"]
+        return (stateFiles.contains(name) ? stateRoot : root).appendingPathComponent(name)
+    }
     public func prepare() throws {
-        for url in [root, logs] { try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700]) }
+        for url in [root, stateRoot, logs] { try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700]) }
     }
     public var isDevelopment: Bool { root != Self.defaultRoot || ProcessInfo.processInfo.environment["VSM_HOME"] != nil }
 }

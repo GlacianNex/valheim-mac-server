@@ -20,6 +20,12 @@ public final class Installer {
     }
     public func install() throws {
         try paths.prepare()
+        let runtimeLease = try RuntimeLease(paths: paths, exclusive: true)
+        defer { withExtendedLifetime(runtimeLease) {} }
+        for server in try Fleet(paths: paths).lifecycles() {
+            if let record = server.record, server.owns(record) { throw MonitorError("Stop all servers before updating the shared runtime.") }
+        }
+        // The legacy lock also protects services started by an older app version.
         let fd = open(paths.file("service.lock").path, O_CREAT | O_RDWR, 0o600)
         guard fd >= 0 else { throw MonitorError("Cannot lock server installation.") }; defer { close(fd) }
         guard flock(fd, LOCK_EX | LOCK_NB) == 0 else { throw MonitorError("Stop the server before installing or updating it.") }

@@ -41,7 +41,7 @@ class HelpLabel: NSTextField {
     }
 }
 
-class ProfileEditor: NSObject, NSWindowDelegate {
+class ProfileEditor: NSObject, NSWindowDelegate, NSTextFieldDelegate {
     var window: NSWindow!
     var saveButton: NSButton?
     private var helpLabels: [HelpLabel] = []
@@ -49,13 +49,15 @@ class ProfileEditor: NSObject, NSWindowDelegate {
     var fields: [String:NSControl] = [:]
     var original: [String:Any]
     var onSave: ([String:Any])->Void
+    private var inheritedFlags: [String: Bool] = [:]
+    let readOnly: Bool
     var selectedImport = ""
     let importLabel = NSTextField(labelWithString: "Fresh world (created on first start)")
-    init(profile: [String:Any], onSave: @escaping ([String:Any])->Void) {
-        original=profile; self.onSave=onSave
+    init(profile: [String:Any], readOnly: Bool = false, onSave: @escaping ([String:Any])->Void) {
+        original=profile; self.onSave=onSave; self.readOnly=readOnly
         super.init()
         window=NSWindow(contentRect:NSRect(x:0,y:0,width:650,height:720),styleMask:[.titled,.closable,.resizable],backing:.buffered,defer:false)
-        window.title = (profile["id"] as? String ?? "").isEmpty ? "New Server Profile" : "Edit Server Profile"
+        window.title = readOnly ? "Server Settings (Read Only)" : (profile["id"] as? String ?? "").isEmpty ? "New Server" : "Edit Server"
         window.isReleasedWhenClosed=false; window.delegate=self
         let content=window.contentView!
         let scroll=NSScrollView(frame:NSRect(x:0,y:65,width:650,height:655))
@@ -72,11 +74,20 @@ class ProfileEditor: NSObject, NSWindowDelegate {
             line.addArrangedSubview(label)
             let control:NSControl
             if check {
-                let b=NSButton(checkboxWithTitle:"Enabled",target:nil,action:nil);b.state=(profile[key] as? Bool ?? false) ? .on:.off;control=b
+                let saved = (profile["_savedFlags"] as? [String: Bool])?[key]
+                let explicit = profile[key] as? Bool ?? false
+                let b=NSButton(checkboxWithTitle: !explicit && saved != nil ? "Saved world: \(saved! ? "Enabled" : "Disabled")" : "Enabled",target:nil,action:nil)
+                b.state=(explicit || saved == true) ? .on:.off;control=b
+                if !explicit, let saved { inheritedFlags[key] = saved }
             } else if let choices=choices {
                 let popup=NSPopUpButton()
                 for raw in choices {
-                    popup.addItem(withTitle:SettingsHelp.title(key,raw))
+                    var title = SettingsHelp.title(key,raw)
+                    if raw.isEmpty, let saved = profile["_savedModifiers"] as? [String: String] {
+                        if let value = saved[key] { title = "Saved world: " + SettingsHelp.savedTitle(key, value) }
+                        else if key == "preset" { title = "Saved world: " + (saved.values.allSatisfy { $0 == "default" } ? "Normal modifiers" : "Custom modifiers") }
+                    }
+                    popup.addItem(withTitle:title)
                     popup.lastItem?.representedObject=raw
                     popup.lastItem?.toolTip=SettingsHelp.optionHelp(key,raw)
                 }
@@ -84,6 +95,7 @@ class ProfileEditor: NSObject, NSWindowDelegate {
             } else {
                 let t:NSTextField=secret ? NSSecureTextField():NSTextField()
                 t.stringValue=profile[key].map{String(describing:$0)} ?? "";control=t
+                if key == "password" { t.delegate = self }
                 if key=="world" {
                     if !(profile["id"] as? String ?? "").isEmpty {t.isEditable=false}
                     else {t.placeholderString="Automatic from profile name"}
@@ -99,18 +111,25 @@ class ProfileEditor: NSObject, NSWindowDelegate {
         func note(_ text:String) {let n=NSTextField(wrappingLabelWithString:text);n.textColor = .secondaryLabelColor;n.font = .systemFont(ofSize:11);n.widthAnchor.constraint(equalToConstant:590).isActive=true;stack.addArrangedSubview(n)}
         note("Hover over underlined labels for help with each setting and its options.")
         section("Identity & World")
-        row("label","Profile name");row("name","Public server name");row("world","World filename");row("password","Password",nil,false,true)
+        row("label","Server name");row("name","Public server name");row("world","World filename")
         if (profile["id"] as? String ?? "").isEmpty {
             let b=NSButton(title:"Import World…",target:self,action:#selector(chooseImport));b.toolTip="Copy a saved world into this new profile. Accepts one-world ZIPs, world folders, or a .db with its matching .fwl. The source is never moved or modified.";stack.addArrangedSubview(b)
             importLabel.lineBreakMode = .byTruncatingMiddle;importLabel.widthAnchor.constraint(equalToConstant:590).isActive=true;stack.addArrangedSubview(importLabel)
             note("For a fresh world, leave World filename blank to generate it from your profile name. To import, choose one world ZIP, a world folder, or a .db with its .fwl; the filename must match the saved world. Originals are copied and preserved. For a custom seed, create the world in Valheim and import it.")
         }
         section("Connection")
-        row("port","Port");row("public","List publicly",nil,true);row("crossplay","Crossplay",nil,true);row("instanceid","Instance ID (optional)")
+        row("public","Server listing",nil,true)
+        if let listed = fields["public"] as? NSButton {
+            listed.title = "List my server"; listed.target = self; listed.action = #selector(listingChanged)
+        }
+        row("password","Password",nil,false,true)
+        note("Listed servers require a password of at least five characters. Unlisted servers remain accessible by address or join code; any existing password is preserved.")
+        row("port","Port");row("crossplay","Crossplay",nil,true);row("instanceid","Instance ID (optional)")
         note("Without crossplay, remote connections require router forwarding for the selected UDP port and the next port.")
         section("Saving & Backups")
         row("saveinterval","Save interval (seconds)");row("backups","Backup count");row("backupshort","Short backup (seconds)");row("backuplong","Long backup (seconds)")
         section("World Modifiers")
+        if let savedNote = profile["_savedSettingsNote"] as? String { note(savedNote) }
         note("Blank means preserve saved world settings. Presets overwrite modifiers. Checkboxes apply enabled world keys; unchecking does not undo keys already stored in a world. Configure those in Valheim itself.")
         row("preset","Preset",["","Normal","Casual","Easy","Hard","Hardcore","Immersive","Hammer"])
         row("Combat","Combat",["","veryeasy","easy","hard","veryhard"])
@@ -126,7 +145,7 @@ class ProfileEditor: NSObject, NSWindowDelegate {
         row("extra","Additional arguments")
         note("Space-separated arguments; quote values containing spaces. Do not duplicate fields above. Save and log paths are managed by the app. Changes apply on the next start.")
         let cancel=NSButton(title:"Cancel",target:self,action:#selector(close));cancel.frame=NSRect(x:425,y:18,width:90,height:30);cancel.autoresizingMask=[.minXMargin,.maxYMargin];content.addSubview(cancel)
-        let save=NSButton(title:"Save Profile",target:self,action:#selector(save));save.frame=NSRect(x:525,y:18,width:110,height:30);save.autoresizingMask=[.minXMargin,.maxYMargin];save.keyEquivalent="\r";content.addSubview(save)
+        let save=NSButton(title:"Save Server",target:self,action:#selector(save));save.frame=NSRect(x:525,y:18,width:110,height:30);save.autoresizingMask=[.minXMargin,.maxYMargin];save.keyEquivalent="\r";content.addSubview(save)
         let timer = Timer(timeInterval: 0.05, repeats: true) { [weak self] timer in
             guard let self = self else { timer.invalidate(); return }
             self.helpLabels.forEach { $0.updateHover() }
@@ -134,6 +153,15 @@ class ProfileEditor: NSObject, NSWindowDelegate {
         hoverTimer = timer
         RunLoop.main.add(timer, forMode: .common)
         saveButton = save
+        updatePasswordVisibility()
+        if readOnly {
+            window.title = "Server Settings (Read Only)"
+            save.isHidden = true; cancel.title = "Close"
+            for control in fields.values {
+                if let text = control as? NSTextField { text.isEditable = false; text.isSelectable = true }
+                else { control.isEnabled = false }
+            }
+        }
         window.center();window.makeKeyAndOrderFront(nil);NSApp.activate(ignoringOtherApps:true)
         content.layoutSubtreeIfNeeded()
         scroll.contentView.scroll(to:NSPoint(x:0,y:stack.isFlipped ? 0 : max(0,stack.bounds.height-scroll.contentView.bounds.height)))
@@ -154,9 +182,17 @@ class ProfileEditor: NSObject, NSWindowDelegate {
     }
     deinit { hoverTimer?.invalidate() }
 
+    func controlTextDidChange(_ notification: Notification) {}
+    @objc private func listingChanged() { updatePasswordVisibility() }
+    private func updatePasswordVisibility() {
+        guard !readOnly, let password = fields["password"] as? NSTextField, let listed = fields["public"] as? NSButton else { return }
+        password.isEnabled = listed.state == .on
+        password.placeholderString = listed.state == .on ? "Required — at least 5 characters" : "No password"
+        listed.isEnabled = true
+    }
     func setSaving(_ saving: Bool) {
         saveButton?.isEnabled = !saving
-        saveButton?.title = saving ? "Saving…" : "Save Profile"
+        saveButton?.title = saving ? "Saving…" : "Save Server"
         window.standardWindowButton(.closeButton)?.isEnabled = !saving
     }
     @objc func chooseImport() {
@@ -167,6 +203,7 @@ class ProfileEditor: NSObject, NSWindowDelegate {
         }
     }
     @objc func save() {
+        guard !readOnly else { return }
         var p=original
         for (key,c) in fields {
             if let b=c as? NSButton {p[key]=b.state == .on}
@@ -175,6 +212,9 @@ class ProfileEditor: NSObject, NSWindowDelegate {
         }
         // NSPopUpButton is an NSButton subclass; capture its selected text explicitly.
         for (key,c) in fields {if let popup=c as? NSPopUpButton {p[key]=popup.selectedItem?.representedObject as? String ?? ""}}
+        for (key, saved) in inheritedFlags {
+            if let button = fields[key] as? NSButton, (button.state == .on) == saved { p[key] = original[key] }
+        }
         for key in ["admins","banned","permitted"] {p[key]=(p[key] as? String ?? "").replacingOccurrences(of:",",with:"\n")}
         p["import"]=selectedImport;onSave(p)
     }

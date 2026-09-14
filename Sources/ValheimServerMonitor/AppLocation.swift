@@ -25,16 +25,16 @@ enum AppLocation {
             }
             try paths.prepare()
         } catch { showError(error); completion(false); return }
-        let running = Lifecycle(paths: paths).isActive
-        let autostart = (try? Store(paths: paths).load().autostart) == true
+        let running = ((try? Fleet(paths: paths).runningIDs()) ?? []).isEmpty == false
+        let autostart = ((try? Fleet(paths: paths).resumeIDs()) ?? []).isEmpty == false
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
         alert.messageText = updating ? "Update Valhiem Server Manager for Mac?" : "Keep Valhiem Server Manager for Mac in Applications"
         alert.informativeText = updating
-            ? versionSummary + "Profiles, worlds, settings, and login preferences are preserved. The old manager will close."
+            ? versionSummary + "Servers, worlds, settings, and login preferences are preserved. The old manager will close."
             : "Background startup needs a stable app location. Copy this app to Applications before setup. Your downloaded copy and all server data are preserved."
-        if running { alert.informativeText += " The server must save and stop first. Players will disconnect briefly. The same world will restart automatically after the updated app opens." }
-        else if autostart { alert.informativeText += " Auto-start is enabled, so the selected world will start after the updated app opens." }
+        if running { alert.informativeText += " Running servers must save and stop first. Players will disconnect briefly. Those servers and servers with auto-start enabled will start after the updated app opens." }
+        else if autostart { alert.informativeText += " Servers with auto-start enabled will start after the updated app opens." }
         alert.addButton(withTitle: running ? "Save, Stop & Update" : (updating ? "Update & Open" : "Copy to Applications & Open"))
         alert.addButton(withTitle: "Quit")
         guard alert.runModal() == .alertFirstButtonReturn else { completion(false); return }
@@ -47,17 +47,16 @@ enum AppLocation {
         progressWindow.center(); progressWindow.makeKeyAndOrderFront(nil)
         DispatchQueue.global(qos: .userInitiated).async {
             var backup: URL?
-            var resumeProfile: String?
+            var resumeProfiles: [String] = []
             do {
                 // Serialize updates, then hold the server lock through the replacement.
                 try withLock(paths.file("app-update.lock")) {
+                    let fleet = Fleet(paths: paths)
+                    resumeProfiles = try fleet.resumeIDs()
+                    try fleet.stopAll()
+                    let runtimeLease = try RuntimeLease(paths: paths, exclusive: true)
+                    defer { withExtendedLifetime(runtimeLease) {} }
                     let lifecycle = Lifecycle(paths: paths)
-                    let wasRunning = lifecycle.isActive
-                    let database = try Store(paths: paths).load()
-                    if AppUpdateResume.shouldStart(wasRunning: wasRunning, autostart: database.autostart) {
-                        resumeProfile = try Store(paths: paths).selected().id
-                    }
-                    if wasRunning { try lifecycle.requestStop() }
                     let fd = open(paths.file("service.lock").path, O_CREAT | O_RDWR, 0o600)
                     guard fd >= 0 else { throw MonitorError("Could not check the server. Please retry the update.") }
                     defer { close(fd) }
@@ -75,7 +74,7 @@ enum AppLocation {
                     } else { try AppInstallation.copy(from: current, to: destination) }
                 }
                 let savedBackup = backup
-                let launchArguments = resumeProfile.map { ["--resume-after-update", $0] } ?? []
+                let launchArguments = resumeProfiles.isEmpty ? [] : ["--resume-after-update"] + resumeProfiles
                 DispatchQueue.main.async {
                     let configuration = NSWorkspace.OpenConfiguration()
                     configuration.arguments = launchArguments
@@ -103,24 +102,29 @@ enum AppLocation {
             applications = NSRunningApplication.runningApplications(withBundleIdentifier: AppInstallation.bundleIdentifier)
                 .filter { $0.processIdentifier != ProcessInfo.processInfo.processIdentifier }
         }
+        var lifetimes: [ProcessLifetime] = []
         // Only request a normal quit for this exact installed app. Never force-kill it.
         for application in applications {
+            guard let lifetime = ProcessLifetime(pid: application.processIdentifier) else { continue }
             guard application.bundleURL?.resolvingSymlinksInPath().standardizedFileURL == destination else {
                 throw MonitorError("Quit other copies of Valhiem Server Manager for Mac, then open this download again.")
             }
             var accepted = false
             DispatchQueue.main.sync { accepted = application.terminate() }
-            guard accepted else { throw MonitorError("Quit the installed manager, then try the update again.") }
+            guard accepted || !lifetime.isRunning else { throw MonitorError("Quit the installed manager, then try the update again.") }
+            lifetimes.append(lifetime)
         }
+        // AppKit can retain stale termination state. Wait on the captured kernel
+        // process identities instead; a reused PID is not the old manager.
         let deadline = Date().addingTimeInterval(10)
-        while applications.contains(where: { !$0.isTerminated }), Date() < deadline { Thread.sleep(forTimeInterval: 0.1) }
-        guard applications.allSatisfy({ $0.isTerminated }) else {
+        while lifetimes.contains(where: { $0.isRunning }), Date() < deadline { Thread.sleep(forTimeInterval: 0.1) }
+        guard lifetimes.allSatisfy({ !$0.isRunning }) else {
             throw MonitorError("The installed manager has not closed yet. Quit it and try again.")
         }
     }
 
     private static func showError(_ error: Error, backup: URL? = nil) {
-        let alert = NSAlert(); alert.messageText = "Open the app using Finder"
+        let alert = NSAlert(); alert.messageText = "App installation needs attention"
         alert.informativeText = error.localizedDescription
         if let backup { alert.informativeText += " Your previous app is preserved at " + backup.appendingPathComponent("Previous.app").path }
         alert.runModal()

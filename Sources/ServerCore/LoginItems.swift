@@ -8,6 +8,11 @@ public final class LoginItems {
     public init(paths: Paths, executable: URL = URL(fileURLWithPath: CommandLine.arguments[0]).standardizedFileURL) {
         self.paths = paths; self.executable = executable
     }
+    private var serviceLabel: String {
+        guard let id = paths.profileID, !paths.usesLegacyState else { return Self.serviceLabel }
+        return Self.serviceLabel + "." + id
+    }
+    private var serviceArguments: [String] { [executable.path, "--service"] + (paths.profileID.map { [$0] } ?? []) }
     private var domain: String { "gui/\(getuid())" }
     private func plist(_ label: String) -> URL { FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/LaunchAgents/\(label).plist") }
     private func guardProduction() throws {
@@ -29,22 +34,35 @@ public final class LoginItems {
         try guardProduction()
         let lifecycle = Lifecycle(paths: paths)
         guard !lifecycle.isActive else { return }
-        let profile = try Store(paths: paths).selected(); try Lifecycle.checkPorts(profile.port)
+        let profile = try Store(paths: paths).selected(); try Fleet(paths: paths).checkProfilePorts(profile)
         guard FileManager.default.isExecutableFile(atPath: paths.executable.path) else { throw MonitorError("Install the native server first.") }
         try lifecycle.requestStart()
-        try register(Self.serviceLabel, args: [executable.path, "--service"], keepAlive: true)
+        try register(serviceLabel, args: serviceArguments, keepAlive: true)
         // kickstart without -k never kills an already running service.
-        try checkCommand("/bin/launchctl", ["kickstart", "\(domain)/\(Self.serviceLabel)"])
+        try checkCommand("/bin/launchctl", ["kickstart", "\(domain)/\(serviceLabel)"])
     }
     public func serverAtLogin(_ enabled: Bool) throws {
         try guardProduction()
-        try Store(paths: paths).update { $0.autostart = enabled }
+        try Store(paths: paths).update { db in
+            let id = paths.profileID ?? db.selected
+            db.profileAutostart?[id] = enabled
+            if id == db.legacyProfile { db.autostart = enabled }
+        }
         // Registration while stopped must not unexpectedly start a server immediately.
         if enabled {
             let lifecycle = Lifecycle(paths: paths)
             if !lifecycle.isActive { try lifecycle.requestStop(wait: false) }
-            try register(Self.serviceLabel, args: [executable.path, "--service"], keepAlive: true)
+            try register(serviceLabel, args: serviceArguments, keepAlive: true)
         }
+    }
+    public func removeServerJob() throws {
+        try guardProduction()
+        guard !Lifecycle(paths: paths).isActive else { throw MonitorError("Stop this server before deleting it.") }
+        try checkCommand("/bin/launchctl", ["disable", "\(domain)/\(serviceLabel)"])
+        _ = try command("/bin/launchctl", ["bootout", "\(domain)/\(serviceLabel)"])
+        if try command("/bin/launchctl", ["print", "\(domain)/\(serviceLabel)"]).code == 0 { throw MonitorError("Could not remove this server's background job. Try again.") }
+        let file = plist(serviceLabel)
+        if FileManager.default.fileExists(atPath: file.path) { try FileManager.default.removeItem(at: file) }
     }
     public func monitorAtLogin(_ enabled: Bool) throws {
         try guardProduction()

@@ -27,22 +27,18 @@ final class ServerUpdateWindow {
         DispatchQueue.global(qos: .userInitiated).async {
             var failure: String?
             do {
-                let lifecycle = Lifecycle(paths: engine.paths)
-                let restart = lifecycle.isActive
-                let profileID = try Store(paths: engine.paths).load().selected
-                if restart {
-                    DispatchQueue.main.async { self.status.stringValue = "Saving the world and stopping the server…" }
-                    try lifecycle.requestStop()
+                let fleet = Fleet(paths: engine.paths)
+                let restart = try fleet.runningIDs()
+                if !restart.isEmpty {
+                    DispatchQueue.main.async { self.status.stringValue = "Saving worlds and stopping servers…" }
+                    try fleet.stopAll()
                 }
                 DispatchQueue.main.async { self.status.stringValue = "Downloading the server update…"; self.downloading = true }
                 try Installer(paths: engine.paths).install()
                 DispatchQueue.main.async { self.downloading = false; self.status.stringValue = "Finishing the update…" }
-                if restart {
-                    guard try Store(paths: engine.paths).load().selected == profileID else {
-                        throw MonitorError("The server was updated, but the selected profile changed. Start your preferred world from the menu.")
-                    }
-                    DispatchQueue.main.async { self.status.stringValue = "Starting the updated server…" }
-                    try LoginItems(paths: engine.paths).start()
+                if !restart.isEmpty {
+                    DispatchQueue.main.async { self.status.stringValue = "Starting the updated servers…" }
+                    try fleet.start(restart)
                 }
             } catch {
                 failure = error.localizedDescription

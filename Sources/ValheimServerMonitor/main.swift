@@ -5,6 +5,7 @@ struct ServerStatusPlaceholder: Decodable {
     var state = "Checking…", players = "", code = "", profileName = "No profile", selected = "", detail = ""
     var running = false, autostart = false, monitorAtLogin = false, installed = false
     var profiles: [Summary] = []
+    var servers: [ServerStatusPlaceholder] = []
     struct Summary: Decodable { var id: String; var label: String }
 }
 class AppDelegate: NSObject, NSApplicationDelegate {
@@ -14,6 +15,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var busy = false
     var refreshing = false
     var startFeedback = StartFeedback()
+    var pendingStarts: [String: StartFeedback] = [:]
+    var busyProfiles: Set<String> = []
     var statusGeneration = 0
     var installedBuild: String?
     var latestBuild: String?
@@ -41,7 +44,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         RunLoop.main.add(statusTimer, forMode: .common)
         timer = statusTimer
         if let index = CommandLine.arguments.firstIndex(of: "--resume-after-update") {
-            perform("resume-after-update", args: Array(CommandLine.arguments.dropFirst(index + 1).prefix(1)))
+            perform("resume-after-update", args: Array(CommandLine.arguments.dropFirst(index + 1)))
         }
     }
     func command(_ action: String, args: [String] = [], input: Data? = nil) -> (Int32, String) {
@@ -60,6 +63,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self.refreshing = false
                 guard generation == self.statusGeneration else { self.refresh(); return }
                 self.displayed = parsed ?? ServerStatusPlaceholder()
+                for server in self.displayed.servers {
+                    if self.pendingStarts[server.selected]?.observe(running: server.running) == true {
+                        let alert = NSAlert(); alert.messageText = "Startup not confirmed: " + server.profileName
+                        alert.informativeText = "Check this server's log for details. Other servers continue running."
+                        alert.runModal()
+                    }
+                }
                 if self.startFeedback.observe(running: parsed?.running == true) {
                     self.displayed.state = "Start not confirmed"
                     let alert = NSAlert(); alert.messageText = "Server startup has not been confirmed"
@@ -78,8 +88,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(row)
     }
     func rebuild() {
-        let starting = startFeedback.pending || displayed.state == "Starting"
-        let active = displayed.running || startFeedback.pending
+        let starting = startFeedback.pending || pendingStarts.values.contains { $0.pending } || displayed.state == "Starting"
+        let active = displayed.running || starting
         let state = startFeedback.pending ? "Starting…" : displayed.state
         let online = displayed.state == "Online" && !startFeedback.pending
         let color: NSColor = online ? .systemGreen : (active ? .systemOrange : .systemRed)
@@ -97,12 +107,40 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.title = " Valhiem · " + (starting ? "Starting…" : (displayed.players.isEmpty ? "—" : displayed.players))
         item.button?.toolTip = "Valhiem Server Manager for Mac — \(displayed.profileName) — \(state), \(displayed.players.isEmpty ? "unknown" : displayed.players) players"
         let menu = NSMenu(); menu.autoenablesItems = false
-        add(menu, "Valhiem Server Manager for Mac")
+        let appVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Development"
+        add(menu, "Valhiem Server Manager for Mac · \(appVersion)")
         menu.addItem(.separator())
-        add(menu, "\(displayed.profileName) — \(state)")
-        if starting { add(menu, startFeedback.pending ? "Waiting for the background service to start…" : "Preparing the world and connecting to the network…") }
-        add(menu, starting || displayed.players.isEmpty ? "Players: —" : "Players: \(displayed.players) (last reported)")
-        if !starting && !displayed.code.isEmpty { add(menu, "Join code: \(displayed.code) · Copy", #selector(copyCode)) }
+        for server in displayed.servers {
+            let pending = pendingStarts[server.selected]?.pending == true
+            let serverStarting = pending || server.state == "Starting"
+            let serverActive = server.running || pending
+            let serverBusy = busy || busyProfiles.contains(server.selected)
+            let playerSummary = serverStarting || server.players.isEmpty ? "Players: —" : "\(server.players) \(server.players == "1" ? "player" : "players")"
+            let serverMenu = NSMenu(); serverMenu.autoenablesItems = false
+            func action(_ title: String, _ selector: Selector, enabled: Bool = true) {
+                add(serverMenu, title, selector, enabled: enabled)
+                serverMenu.items.last?.representedObject = server.selected
+            }
+            if !serverStarting && !server.code.isEmpty { action("Join code: \(server.code) · Copy", #selector(copyServerCode(_:))) }
+            else { add(serverMenu, "Join code: unavailable") }
+            serverMenu.addItem(.separator())
+            action(serverStarting ? "Starting Server…" : "Start Server", #selector(startProfile(_:)), enabled: !serverBusy && !serverActive && server.installed)
+            action("Stop Server (Save & Stop)", #selector(stopProfile(_:)), enabled: !serverBusy && server.running)
+            action(serverActive ? "View Settings…" : "Edit Server…", #selector(profileSettings(_:)), enabled: !serverBusy)
+            action("Automatically Start at Login", #selector(profileAutostart(_:)), enabled: !serverBusy)
+            serverMenu.items.last?.state = server.autostart ? .on : .off
+            serverMenu.addItem(.separator())
+            action("Open Server Log", #selector(profileLog(_:)))
+            action("Open Logs Folder", #selector(profileFolder(_:)))
+            if !server.detail.isEmpty { action("Show Last Server Error…", #selector(profileError(_:))) }
+            serverMenu.addItem(.separator())
+            action("Delete Server…", #selector(deleteProfile(_:)), enabled: !serverBusy && !serverActive)
+            let row = NSMenuItem(title: "\(server.profileName) — \(pending ? "Starting…" : server.state) · \(playerSummary)", action: nil, keyEquivalent: "")
+            row.submenu = serverMenu; row.isEnabled = true
+            row.toolTip = "Player count is the last count reported in this server's log."
+            menu.addItem(row)
+        }
+        menu.addItem(.separator())
         if let installedBuild {
             let suffix: String
             if checkingVersion { suffix = "Checking for updates…" }
@@ -110,36 +148,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             else if let latestBuild, ServerVersion.updateAvailable(installed: installedBuild, latest: latestBuild) { suffix = "Update to \(latestBuild)…" }
             else if latestBuild != nil { suffix = "Up to date" }
             else { suffix = "Check for updates" }
-            add(menu, "Server build \(installedBuild) — \(suffix)", #selector(serverVersionClicked), enabled: !busy && !checkingVersion && !startFeedback.pending)
-        } else { add(menu, "Server version: not installed or unavailable") }
+            add(menu, "Valheim Server Build \(installedBuild) — \(suffix)", #selector(serverVersionClicked), enabled: !busy && busyProfiles.isEmpty && !checkingVersion && !starting)
+        } else { add(menu, "Valheim Server Build: not installed or unavailable") }
+        menu.items.last?.toolTip = "The installed Valheim server software is shared by all servers listed above."
         menu.addItem(.separator())
-        let profilesMenu = NSMenu(); profilesMenu.autoenablesItems = false
-        for profile in displayed.profiles {
-            let row = NSMenuItem(title: profile.label, action: #selector(selectProfile(_:)), keyEquivalent: "")
-            row.target = self; row.representedObject = profile.id; row.state = profile.id == displayed.selected ? .on : .off
-            row.isEnabled = !busy && !active
-            profilesMenu.addItem(row)
+        let serverUpdateAvailable = installedBuild.flatMap { installed in
+            latestBuild.map { ServerVersion.updateAvailable(installed: installed, latest: $0) }
+        } ?? false
+        if !displayed.installed || (!versionCheckFailed && serverUpdateAvailable) {
+            add(menu, "Set Up / Update Native Server…", #selector(showSetup), enabled: !busy && !active)
         }
-        let profilesRow = NSMenuItem(title: "Selected Server", action: nil, keyEquivalent: ""); profilesRow.submenu = profilesMenu; profilesRow.isEnabled = true; menu.addItem(profilesRow)
-        add(menu, "Set Up / Update Native Server…", #selector(showSetup), enabled: !busy && !active)
-        add(menu, "New Server Profile…", #selector(newProfile), enabled: !busy)
-        add(menu, "Edit Selected Profile…", #selector(editProfile), enabled: !busy && !active && !displayed.selected.isEmpty)
-        if active { add(menu, "Stop server to switch or edit profiles") }
+        add(menu, "New Server…", #selector(newProfile), enabled: !busy)
         menu.addItem(.separator())
-        add(menu, starting ? "Starting Server…" : (busy ? "Please wait…" : "Start Server"), #selector(startServer), enabled: !busy && !active && displayed.installed && !displayed.selected.isEmpty)
-        add(menu, "Stop Server (Save & Stop)", #selector(stopServer), enabled: !busy && displayed.running && displayed.state != "Installing")
-        menu.addItem(.separator())
-        add(menu, "Automatically Start Server at Login", #selector(toggleAutostart), enabled: !busy)
-        menu.items.last?.state = displayed.autostart ? .on : .off
         add(menu, "Open Manager at Login", #selector(toggleMonitorLogin), enabled: !busy)
         menu.items.last?.state = displayed.monitorAtLogin ? .on : .off
         menu.addItem(.separator())
-        if !displayed.detail.isEmpty { add(menu, "Show Last Server Error…", #selector(showError)) }
-        add(menu, "Open Server Log", #selector(openLog))
-        add(menu, "Open Logs Folder", #selector(openFolder))
         add(menu, "Refresh Status", #selector(refreshNow))
         menu.addItem(.separator())
-        add(menu, "Quit Manager (Server Keeps Running)", #selector(quit))
+        add(menu, "Quit Manager (Servers Keep Running)", #selector(quit))
         item.menu = menu
     }
     func perform(_ action: String, args: [String] = []) {
@@ -168,6 +194,50 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
     }
+    func profileAction(_ action: String, id: String) {
+        guard !busy, !busyProfiles.contains(id) else { return }
+        busyProfiles.insert(id)
+        if action == "start" { var feedback = StartFeedback(); feedback.begin(); pendingStarts[id] = feedback }
+        statusGeneration += 1; rebuild()
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = self.command(action, args: [id])
+            DispatchQueue.main.async {
+                self.busyProfiles.remove(id)
+                if action == "start" { self.pendingStarts[id]?.commandFinished(success: result.0 == 0) }
+                self.statusGeneration += 1; self.rebuild(); self.refresh()
+                if result.0 != 0 { let alert = NSAlert(); alert.messageText = "Server needs attention"; alert.informativeText = result.1; alert.runModal() }
+            }
+        }
+    }
+    func server(_ sender: NSMenuItem) -> ServerStatusPlaceholder? { displayed.servers.first { $0.selected == sender.representedObject as? String } }
+    @objc func deleteProfile(_ sender: NSMenuItem) {
+        guard let server = server(sender), !server.running else { return }
+        let alert = NSAlert(); alert.messageText = "Delete \(server.profileName)?"
+        alert.informativeText = "This removes the server from the manager and disables its login startup. Its world save and settings will be kept in the app's deleted-servers recovery folder. Other servers are unaffected."
+        alert.addButton(withTitle: "Cancel"); alert.addButton(withTitle: "Delete Server")
+        guard alert.runModal() == .alertSecondButtonReturn else { return }
+        profileAction("delete-server", id: server.selected)
+    }
+    @objc func startProfile(_ sender: NSMenuItem) { if let id = sender.representedObject as? String { profileAction("start", id: id) } }
+    @objc func stopProfile(_ sender: NSMenuItem) { if let id = sender.representedObject as? String { profileAction("stop", id: id) } }
+    @objc func profileAutostart(_ sender: NSMenuItem) { if let server = server(sender) { profileAction(server.autostart ? "autostart-off" : "autostart-on", id: server.selected) } }
+    @objc func profileSettings(_ sender: NSMenuItem) {
+        if let server = server(sender) { showEditor("get-profile", profileID: server.selected, readOnly: server.running || pendingStarts[server.selected]?.pending == true) }
+    }
+    @objc func copyServerCode(_ sender: NSMenuItem) {
+        if let server = server(sender) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(server.code, forType: .string) }
+    }
+    func pathsForServer(_ sender: NSMenuItem) -> Paths? {
+        guard let id = sender.representedObject as? String else { return nil }
+        return try? Store(paths: engine.paths).servicePaths(id)
+    }
+    @objc func profileLog(_ sender: NSMenuItem) {
+        guard let paths = pathsForServer(sender) else { return }
+        if let log = try? String(contentsOf: paths.file("latest-log"), encoding: .utf8), FileManager.default.fileExists(atPath: log) { NSWorkspace.shared.open(URL(fileURLWithPath: log)) }
+        else { try? paths.prepare(); NSWorkspace.shared.open(paths.logs) }
+    }
+    @objc func profileFolder(_ sender: NSMenuItem) { if let paths = pathsForServer(sender) { try? paths.prepare(); NSWorkspace.shared.open(paths.logs) } }
+    @objc func profileError(_ sender: NSMenuItem) { if let server = server(sender) { let alert = NSAlert(); alert.messageText = server.profileName; alert.informativeText = server.detail; alert.runModal() } }
     @objc func selectProfile(_ sender: NSMenuItem) { if let id = sender.representedObject as? String { perform("select-profile", args: [id]) } }
     func checkServerVersion(force: Bool = false) {
         guard !checkingVersion, !busy, force || lastVersionCheck == nil || Date().timeIntervalSince(lastVersionCheck!) >= 900 else { return }
@@ -185,13 +255,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     @objc func serverVersionClicked() {
-        guard !busy, !checkingVersion else { return }
+        guard !busy, busyProfiles.isEmpty, !checkingVersion, !pendingStarts.values.contains(where: { $0.pending }) else { return }
         guard let installedBuild, let latestBuild, !versionCheckFailed,
               ServerVersion.updateAvailable(installed: installedBuild, latest: latestBuild) else {
             checkServerVersion(force: true); rebuild(); return
         }
         let alert = NSAlert(); alert.messageText = "Update the Valheim server?"
-        alert.informativeText = "Install Valve’s latest stable server build (currently \(latestBuild)). If running, the server will save and stop, disconnecting players, then restart the same world after a successful update. Your profiles and worlds are preserved."
+        alert.informativeText = "Install Valve’s latest stable server build (currently \(latestBuild)). All running servers will save and stop, disconnecting players, then restart after a successful update. Your profiles and worlds are preserved."
         alert.addButton(withTitle: "Update Server"); alert.addButton(withTitle: "Cancel")
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         busy = true; rebuild()
@@ -202,11 +272,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self.checkServerVersion(force: true); self.refresh()
         }
     }
-    func showEditor(_ action: String) {
-        let result = command(action)
+    func showEditor(_ action: String, profileID: String? = nil, readOnly: Bool = false) {
+        let result = command(action, args: profileID.map { [$0] } ?? [])
         guard result.0 == 0, let profile = try? JSONSerialization.jsonObject(with: Data(result.1.utf8)) as? [String:Any] else { return }
         editor?.window.close()
-        editor = ProfileEditor(profile: profile) { values in
+        editor = ProfileEditor(profile: profile, readOnly: readOnly) { values in
             guard let data = try? JSONSerialization.data(withJSONObject: values) else { return }
             guard !self.busy else { return }
             self.busy = true; self.editor?.setSaving(true)
@@ -242,8 +312,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 }
 umask(0o077)
 if CommandLine.arguments.contains("--service") {
-    let paths = Paths()
-    do { try Lifecycle(paths: paths).runService(); exit(0) }
+    let base = Paths()
+    var paths = base
+    do {
+        let store = try Store(paths: base), db = try store.load()
+        let index = CommandLine.arguments.firstIndex(of: "--service")!
+        let id = CommandLine.arguments.count > index + 1 ? CommandLine.arguments[index + 1] : (db.legacyProfile ?? db.selected)
+        guard db.profiles.contains(where: { $0.id == id }) else { throw MonitorError("Profile not found.") }
+        paths = store.servicePaths(id, database: db)
+        try Lifecycle(paths: paths).runService(); exit(0)
+    }
     catch {
         try? atomicWrite(Data(error.localizedDescription.utf8), to: paths.file("last-error.txt"))
         FileHandle.standardError.write(Data((error.localizedDescription + "\n").utf8)); exit(1)

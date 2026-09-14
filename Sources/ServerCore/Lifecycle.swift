@@ -12,6 +12,7 @@ public struct ServerStatus: Codable {
     public var state = "Stopped", players = "", code = "", profileName = "No profile", selected = ""
     public var running = false, autostart = false, monitorAtLogin = false, installed = false
     public var profiles: [Summary] = []
+    public var servers: [ServerStatus] = []
     public var detail = ""
     public struct Summary: Codable { public let id: String; public let label: String }
 }
@@ -50,10 +51,10 @@ public final class Lifecycle {
     public func status() throws -> ServerStatus {
         let db = try Store(paths: paths).load()
         var value = ServerStatus()
-        value.autostart = db.autostart; value.monitorAtLogin = db.monitorAtLogin
+        value.autostart = try Store(paths: paths).autostart(paths.profileID ?? db.selected, database: db); value.monitorAtLogin = db.monitorAtLogin
         value.installed = FileManager.default.isExecutableFile(atPath: paths.executable.path)
         value.profiles = db.profiles.map { ServerStatus.Summary(id: $0.id, label: $0.label) }
-        value.selected = db.selected; value.profileName = db.profiles.first { $0.id == db.selected }?.label ?? "No profile"
+        value.selected = paths.profileID ?? db.selected; value.profileName = db.profiles.first { $0.id == value.selected }?.label ?? "No profile"
         value.running = isActive
         if value.running {
             value.state = FileManager.default.fileExists(atPath: paths.file("installing").path) ? "Installing" : "Starting"
@@ -120,6 +121,8 @@ public final class Lifecycle {
     }
     public func runService() throws {
         try paths.prepare()
+        let runtimeLease = try RuntimeLease(paths: paths, exclusive: false)
+        defer { withExtendedLifetime(runtimeLease) {} }
         let fd = open(paths.file("service.lock").path, O_CREAT | O_RDWR, 0o600)
         guard fd >= 0 else { throw MonitorError("Cannot create the service lock.") }
         defer { close(fd) }
@@ -129,10 +132,15 @@ public final class Lifecycle {
         try? FileManager.default.removeItem(at: paths.file("installing"))
         let store = try Store(paths: paths)
         let db = try store.load()
-        guard !requested("stop-request"), db.autostart || requested("start-request") else { return }
+        guard !requested("stop-request"), store.autostart(paths.profileID ?? db.selected, database: db) || requested("start-request") else { return }
         let profile = try store.selected(); try profile.validate()
         guard FileManager.default.isExecutableFile(atPath: paths.executable.path) else { throw MonitorError("Install the native server first.") }
-        try Self.checkPorts(profile.port)
+        let startFD = open(paths.root.appendingPathComponent("server-start.lock").path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
+        guard startFD >= 0 else { throw MonitorError("Cannot lock server startup.") }
+        defer { close(startFD) }
+        guard flock(startFD, LOCK_EX) == 0 else { throw MonitorError("Cannot serialize server startup.") }
+        defer { flock(startFD, LOCK_UN) }
+        try Fleet(paths: paths).checkProfilePorts(profile)
         try store.writeAccessLists(profile)
         let session = UUID().uuidString.lowercased()
         let log = paths.logs.appendingPathComponent("server-\(session).log")
@@ -153,6 +161,7 @@ public final class Lifecycle {
                                    started: Self.birth(child.processIdentifier), profile: profile.id, log: log.path)
         try atomicWrite(encode(record), to: paths.file("running.json"))
         try atomicWrite(Data(log.path.utf8), to: paths.file("latest-log"))
+        flock(startFD, LOCK_UN)
         signal(SIGTERM, SIG_IGN)
         let termination = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .global())
         termination.setEventHandler { try? self.requestStop(wait: false) }; termination.resume()

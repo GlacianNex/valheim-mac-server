@@ -1,47 +1,70 @@
 # Mac setup and recovery
 
-This guide is for hosting a Valheim dedicated server on **macOS 13 Ventura or later**. The app includes Apple Silicon and Intel binaries; runtime testing is currently on Apple Silicon. Have about 6 GB of free disk space available. On Apple Silicon, Valve's download tool may need Rosetta; the app offers to install it. The dedicated server itself runs natively.
+Requires macOS 13 Ventura or later. The app includes Apple Silicon and Intel binaries; runtime testing has been on Apple Silicon. Allow 6 GB for the shared runtime and updates, plus space for worlds and backups. Each running world also uses memory and CPU.
 
-## First run
+## Install and create a server
 
-Fresh installations use `/Applications/Valhiem Server Manager for Mac.app`. Upgrades from the former Valheim Server Monitor keep their existing app folder path so registered login items continue to work. Both display the new manager name. Its copy-to-Applications prompt helps establish a stable launch path. To update, download and unzip a newer release and open the downloaded app. Starting with 0.1.4, the download offers **Update & Open** when an older version is installed. If its server is running, **Save, Stop & Update** saves and stops it first; players disconnect, and you start the server again afterward. The app validates the new copy, closes the old manager, replaces it, and reopens from Applications. Profiles, worlds, settings, and login preferences are stored separately and preserved. If macOS brings the old manager forward instead, quit it and open the download again. This installs a manually downloaded release; it does not check for releases or download app updates automatically.
+1. Download the signed, notarized ZIP from [GitHub Releases](https://github.com/GlacianNex/valhiem-mac-server/releases/latest), unzip, and open the app. Accept its copy to Applications or drag it there in Finder.
+2. Choose **Install Native Server**. The manager downloads Valve’s server anonymously. No Steam account, running Steam client, Python, or CrossOver is needed. Valve’s installer may require Rosetta on Apple Silicon; the app offers Apple’s installer. The game server runs natively.
+3. Choose **New Server…**. Enter the server names and select **List my server** if it should appear publicly. This checkbox enables Password; listed servers require at least five characters. Unlisted servers can have an empty password, allowing anyone with the address or join code to connect. Unchecking listing preserves an existing password; clear it before unchecking to remove password protection.
+4. Leave World filename blank to generate it from the server name, or use **Import World…**. Save, then hover over the server’s status row and choose **Start Server**.
 
-Setup downloads roughly 2 GB from Valve, with additional disk space needed during verification and updates. Crossplay is enabled by default. Select **Open Manager at Login** and **Automatically Start Server at Login** separately in the menu. Enabling server autostart while stopped takes effect on a future boot/login; it does not immediately start the server.
+Each server appears independently in the menu. Its submenu contains Start/Save & Stop, join-code copy, settings, auto-start, logs, and Delete Server. Multiple servers can run simultaneously. New servers default to unused configured UDP port pairs; startup rejects conflicts with another active server. A server uses its base port and the next port.
 
-The macOS login service identifiers are:
+## Import and view settings
 
-- `io.github.glaciannex.valheimservermonitor.menu`
-- `io.github.glaciannex.valheimservermonitor.server`
+Import from a stopped source server or consistent backup. Choose a ZIP containing one complete world, a modern world folder, or a legacy `.db` with its matching `.fwl`. The filename must match the imported world. The manager copies the source into a separate world directory; it never moves or edits the original.
 
-Other launch agents are never modified. macOS may list these items under Login Items / Allow in the Background. Disabling them there can prevent automatic startup.
+Settings automatically display inherited world modifiers from completed `.fwl2` save generations or legacy `.fwl` metadata. These values remain inherited when an unrelated field is saved. They reflect the last saved metadata, not a live console query; in-game changes can appear after the next save. Unsupported or incomplete metadata is reported rather than guessed. Explicit profile overrides still take precedence in the form and apply on the next start.
 
-## Valheim server updates
+Running servers offer **View Settings…** with editing disabled. Stopped servers offer **Edit Server…**. Some world keys persist in saves: unchecking a launch flag does not remove a previously saved world key. The underlined setting labels explain these effects.
 
-The menu's **Server build** row shows the installed Steam build number. This identifies the exact installed release; it is not Valheim's marketing version number. The manager checks Valve's public (stable) branch at launch and every 15 minutes. These checks use a separate copy of Valve's downloader and leave the running server and its libraries untouched.
+To choose a particular world seed, create the world in Valheim and import it.
 
-When a newer build is available, click the row and confirm **Update Server**. A running server saves and stops, the latest stable build is installed, and the same selected world is restarted after success. Players disconnect during this update. A stopped server stays stopped. If installation fails, the manager shows the error and does not attempt a restart. Profiles and world data are preserved.
+## Networking and login startup
 
-Click an up-to-date row to check again, or retry when a check is unavailable. Technical check details are in `version-check.log`; update progress is in `installation.log`. App updates and Valheim server updates are separate operations.
+Crossplay is enabled by default. Use the reported join code or public address; LAN/loopback addresses are not the crossplay connection route. Steam-only hosting requires router forwarding for the base UDP port and the following port. The app does not configure your router.
 
-## Existing worlds
+**Open Manager at Login** is in the main menu. **Automatically Start at Login** belongs to each server’s submenu. Enabling auto-start while stopped does not start it immediately. Startup occurs after login, not before a user signs in. Hosting requires a network connection and a logged-in Mac; the service prevents idle sleep, but cannot host during shutdown or laptop lid sleep.
 
-Stop the source server or choose a consistent backup before importing. Select a ZIP containing exactly one world, a modern world folder, or a legacy `.db` with its adjacent `.fwl`. Set World filename to match the imported folder/file name. The import is copied into a new profile. The source remains untouched.
+LaunchAgent identifiers under `~/Library/LaunchAgents`:
 
-An empty profile creates a fresh world on its first start. To choose a particular seed, create a world in Valheim and import it. Switching or editing the active profile requires Save & Stop first.
+- `io.github.glaciannex.valheimservermonitor.menu` — manager.
+- `io.github.glaciannex.valheimservermonitor.server` — original server.
+- `io.github.glaciannex.valheimservermonitor.server.<profile-id>` — additional servers.
 
-## Startup trouble
+macOS Login Items / Allow in the Background permissions can prevent automatic startup. Unrelated launch agents are not managed by this app.
 
-Open the logs folder from the menu. Every run has a separate server log and console log; installation progress is in `installation.log`. The menu shows the last startup error when available.
+## Update the app
 
-- **Port already in use:** choose another base port or stop the other server through its own manager. This app will not stop it for you.
-- **Download failed:** check connectivity/free space, then use Set Up / Update Native Server to retry.
-- **Rosetta missing:** approve the Rosetta prompt if you accept Apple's license. This is for Valve's downloader, not the native server.
-- **Unknown player count:** the server has not reported a count in a recognized log line yet.
-- **Save timeout:** inspect the current server/console log. Do not force-quit a server that is still writing a save.
-- **Profile won't import:** verify it contains one complete world, has matching filenames, and has no symbolic links or unsafe archive paths.
+Download and open a newer app. **Update & Open** validates and replaces the installed manager, then opens it from Applications. If hosting, **Save, Stop & Update** saves and stops all running servers first. After successful replacement, servers that were running and servers with auto-start enabled are started again. Players disconnect during replacement. Profiles, worlds, and login preferences remain separate from the app bundle.
 
-For crossplay, use the reported join code or public server address; a LAN or loopback address is not the crossplay connection route. Steam-only hosting needs router forwarding for both UDP ports. The computer needs an active network connection and must remain logged in. The service prevents idle sleep while hosting, but it cannot host while the Mac is shut down or sleeping with its lid closed.
+App updates are manually downloaded; the manager does not automatically download its own releases. Fresh installs use `/Applications/Valhiem Server Manager for Mac.app`. Older installations can retain `/Applications/Valheim Server Monitor.app` so existing startup paths keep working.
 
-## Removing the app
+## Update the Valheim runtime
 
-Save & Stop the server, disable both login options, and quit the manager. Remove only this app's two launch-agent files listed above from `~/Library/LaunchAgents` if you want to remove all startup registration. Keep `~/Library/Application Support/Valheim Server Monitor/worlds` until you have backed up your worlds. Deleting the app bundle alone does not erase world data.
+**Valheim Server Build** occupies its own section because all hosted worlds share the installation. The number is Valve’s Steam build ID, not the game’s marketing version. Checks run at launch and every 15 minutes using a separate downloader copy; checking leaves running servers untouched.
+
+Click an available update and confirm **Update Server**. All running servers save and stop, the shared runtime updates, and those servers restart after success. Previously stopped servers stay stopped. A failed installation reports an error and does not attempt a restart. One previous runtime is retained for recovery. Click the row to recheck or retry a failed check.
+
+## Logs and troubleshooting
+
+Each server’s submenu has **Open Server Log**, **Open Logs Folder**, and its last error when available. Shared download/update logs are in `~/Library/Application Support/Valheim Server Monitor/logs/installation.log` and `version-check.log`.
+
+- **Port conflict:** choose a different base port; the app will not stop the other server for you.
+- **Download failure:** check connectivity and free space, then retry setup/update.
+- **Unknown player count:** no recognized count has been reported yet; counts come from logs and can be stale.
+- **Save timeout:** inspect the log. The app does not force-kill a server that is still saving.
+- **Import failure:** check that exactly one complete world is included and filenames match. Symlinks and unsafe ZIP paths are rejected.
+
+## Delete a server or remove the app
+
+**Delete Server…** requires the server to be stopped and asks for confirmation. It removes the server record and background job while retaining world files and settings under `~/Library/Application Support/Valheim Server Monitor/deleted-servers/<recovery-id>/`. Other servers are unaffected. Recovery folders contain private settings, including passwords; do not publish them.
+
+To remove the app, save and stop all servers, disable their auto-start settings and manager login startup, then quit. Remove only this app’s LaunchAgent files listed above if removing registration completely. Back up the application-support folder before deleting data. Removing the app bundle alone does not erase worlds.
+
+## Upgrading older profile databases
+
+The first settings write backs up the original single-server database as `profiles-before-multiserver.json` and writes schema 2 with independent startup preferences. Existing world directories remain in place. The original server keeps its process-state/log locations; additional servers use `servers/<id>/`.
+
+Older managers cannot read schema 2. To roll back, stop every server, unload/remove additional per-server LaunchAgents while retaining the original server job, then restore the older app and database backup. Keep a copy of the current database: restoring the backup discards later settings and server records, though the separate world files remain. Do not run older and newer managers against the same data simultaneously.

@@ -2,18 +2,18 @@
 
 This project distributes directly from GitHub using **Developer ID Application signing and Apple notarization**. This is not Mac App Store review or a certification of code quality. Apple checks the submitted app for malicious content and signing problems, then issues a ticket that Gatekeeper can verify.
 
-## Current readiness
+## Distribution requirements
 
 - The universal app builds for macOS 13+, Apple Silicon and Intel.
 - Signed builds enable hardened runtime and secure timestamps. The Swift manager needs no JIT, unsigned-library, debugger, or App Sandbox exception entitlements. Valve's tools/server are separate downloaded processes, not bundled plug-ins.
 - `scripts/apple-preflight.sh` checks distribution identity availability before a signed build.
 - `scripts/notarize.sh` validates the signed bundle, submits the exact archive, requires Apple's Accepted status, staples and validates the ticket, runs Gatekeeper assessment, and recreates the ZIP/checksum afterward.
 - The GitHub release workflow uses that same script and saves notarization diagnostics on failure.
-- Version 0.1.8 was Developer ID signed and accepted by Apple on 2026-09-14. Ticket stapling, ticket validation, signature verification, and local Gatekeeper assessment passed. Browser-download testing on another Mac remains pending. An Apple Development certificate cannot substitute for Developer ID.
+
 
 ## Account steps for the maintainer
 
-1. [Enroll in the Apple Developer Program](https://developer.apple.com/programs/enroll/). Apple currently lists US$99 per membership year, or local pricing where available. Complete identity verification and Apple's agreements yourself. Choose individual or organization according to who will distribute the app; do not enroll as a company you do not represent.
+1. [Enroll in the Apple Developer Program](https://developer.apple.com/programs/enroll/). Complete identity verification and Apple's agreements yourself. Choose individual or organization according to who will distribute the app; do not enroll as a company you do not represent.
 2. After approval, use Xcode's account certificate management or [Apple's certificate portal](https://developer.apple.com/help/account/certificates/create-developer-id-certificates) to create **Developer ID Application**. Keep its private key on your Mac. A Developer ID Installer certificate is only needed if we later ship a signed `.pkg`; it is not needed for this `.app` in a ZIP.
 3. Verify the identity is available using `security find-identity -v -p codesigning`. Its name should begin `Developer ID Application:`. Preserve the existing bundle identifier `io.github.glaciannex.valheimservermonitor`; the product rename does not require a new identifier.
 4. Create an app-specific password for your Apple Account and save it through the interactive Keychain command below. Enter secrets locally, not into chat, source files, or shell history. `notarytool` validates the credentials with Apple.
@@ -22,17 +22,17 @@ This project distributes directly from GitHub using **Developer ID Application s
 xcrun notarytool store-credentials VSM_NOTARY
 ```
 
-Use the Team ID associated with the Developer Program membership. No Apple credentials need to be stored on GitHub for the first local notarized release.
+Use the Team ID associated with the Developer Program membership. No Apple credentials need to be stored on GitHub for local notarized releases.
 
-## First notarized build
+## Notarized build
 
-Use a new version number so the existing updater recognizes it as newer. Do not silently replace the already published unnotarized 0.1.7 ZIP.
+Use a new version number so the updater recognizes it as newer. Never replace an existing release archive with a different build.
 
 ```sh
 export SIGNING_IDENTITY='Developer ID Application: YOUR NAME (TEAMID)'
 scripts/apple-preflight.sh
 swift test
-VERSION=0.1.8 scripts/build.sh
+VERSION=1.0.0 scripts/build.sh
 NOTARY_PROFILE=VSM_NOTARY scripts/notarize.sh
 ```
 

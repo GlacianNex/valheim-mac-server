@@ -29,6 +29,7 @@ profile.update(label='Integration fixture', name='Integration fixture', world='I
 control('save-profile', profile)
 database = json.loads((root / 'profiles.json').read_text())
 database['autostart'] = True
+database['profileAutostart'] = {database['selected']: True}
 (root / 'profiles.json').write_text(json.dumps(database))
 logs = []
 for cycle in range(2):

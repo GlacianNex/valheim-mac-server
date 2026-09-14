@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Version (for example 0.1.0)
+        description: Version (for example 1.0.0)
         required: true
         type: string
       notarize:
@@ -61,17 +61,19 @@ jobs:
           path: dist/notarization/
           if-no-files-found: ignore
           retention-days: 14
-      - name: Create draft prerelease
+      - name: Create draft release
         env:
           GH_TOKEN: ${{ github.token }}
           NOTARIZED: ${{ inputs.notarize }}
         run: |
           if [[ "$NOTARIZED" == true ]]; then
-            printf 'Developer ID signed and notarized. See README and verification notes for preview limitations.\n' > "$RUNNER_TEMP/notes.md"
+            printf 'Developer ID signed and notarized. See README and verification notes for supported behavior and coverage.\n' > "$RUNNER_TEMP/notes.md"
           else
-            printf 'Unnotarized preview: macOS may block first launch. See README for per-app approval and source builds.\n' > "$RUNNER_TEMP/notes.md"
+            printf 'Unnotarized preview: macOS may block first launch. This is a development artifact, not the notarized public download.\n' > "$RUNNER_TEMP/notes.md"
           fi
-          gh release create "v$VERSION" dist/Valhiem-Server-Manager-for-Mac.zip dist/SHA256SUMS.txt --draft --prerelease --title "Valhiem Server Manager for Mac $VERSION" --notes-file "$RUNNER_TEMP/notes.md"
+          prerelease_args=()
+          if [[ "$NOTARIZED" != true ]]; then prerelease_args+=(--prerelease); fi
+          gh release create "v$VERSION" dist/Valhiem-Server-Manager-for-Mac.zip dist/SHA256SUMS.txt --draft "${prerelease_args[@]}" --title "Valhiem Server Manager for Mac $VERSION" --notes-file "$RUNNER_TEMP/notes.md"
       - name: Remove signing material
         if: always()
         run: |

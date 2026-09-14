@@ -46,12 +46,13 @@ public struct Profile: Codable, Equatable {
     }
     public func validate() throws {
         guard UUID(uuidString: id) != nil else { throw MonitorError("Invalid profile identifier.") }
-        for (key, value) in [("Profile name", label), ("Server name", name), ("World filename", world), ("Password", password)] {
+        for (key, value) in [("Profile name", label), ("Server name", name), ("World filename", world)] {
             guard !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                   value.rangeOfCharacter(from: .controlCharacters) == nil, !value.contains("\"") else { throw MonitorError("\(key) is required and cannot contain quotes or control characters.") }
         }
         guard !world.contains("/"), !world.contains("\\"), !world.contains(":"), world != ".", world != ".." else { throw MonitorError("World filename must be a plain filename.") }
-        guard password.count >= 5, !name.localizedCaseInsensitiveContains(password) else { throw MonitorError("Use at least five password characters, and do not include the password in the server name.") }
+        guard password.rangeOfCharacter(from: .controlCharacters) == nil, !password.contains("\"") else { throw MonitorError("Password cannot contain quotes or control characters.") }
+        guard password.isEmpty ? !isPublic : (password.count >= 5 && !name.localizedCaseInsensitiveContains(password)) else { throw MonitorError("Use at least five password characters, or leave it blank for an unlisted server. The password cannot appear in the server name.") }
         guard (1...65534).contains(port), saveinterval > 0, backups >= 0, backupshort > 0, backuplong > 0 else { throw MonitorError("Check the port (1–65534), positive save intervals, and nonnegative backup count.") }
         guard ["", "Normal", "Casual", "Easy", "Hard", "Hardcore", "Immersive", "Hammer"].contains(preset) else { throw MonitorError("Unknown preset.") }
         for (key, choices) in Self.modifierChoices {
