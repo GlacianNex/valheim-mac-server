@@ -4,9 +4,9 @@ Host a Valheim dedicated server on your Mac. This native macOS menu bar app inst
 
 **Requires macOS 13 Ventura or later.** The download includes Apple Silicon and Intel Mac binaries. Runtime testing is currently on Apple Silicon; Intel hardware validation is still pending. Allow 6 GB of free disk space for installation and updates. The hosting app is for macOS only.
 
-**Early preview.** Native installation, startup, and shutdown are being tested on Apple Silicon. The initial downloadable preview is ad-hoc signed, **not Developer ID signed or notarized**. macOS may block first launch. A notarized release is the remaining distribution step before the intended low-friction experience. Do not treat the preview as a production-tested replacement for an existing server.
+**Early release.** Native installation, startup, and shutdown are being tested on Apple Silicon. The downloadable release is ad-hoc signed, **not Developer ID signed or notarized**. macOS may block first launch. A notarized release is the remaining distribution step before the intended low-friction experience. Do not treat this early release as a production-tested replacement for an existing server.
 
-[Download for Mac — preview releases](https://github.com/GlacianNex/valhiem-mac-server/releases) · [Mac setup and recovery](docs/SETUP.md) · [Development](CONTRIBUTING.md)
+[Download for Mac](https://github.com/GlacianNex/valhiem-mac-server/releases/latest) · [Mac setup and recovery](docs/SETUP.md) · [Development](CONTRIBUTING.md)
 
 ## Getting started on your Mac
 
@@ -16,7 +16,7 @@ Host a Valheim dedicated server on your Mac. This native macOS menu bar app inst
 
 Crossplay is enabled by default, using Valheim's relay networking. The app displays the join code when the server reports one. Steam-only hosting requires forwarding the chosen UDP port and the next port on your router. The manager cannot change your router configuration.
 
-For an unnotarized preview, use macOS's per-app approval in **System Settings → Privacy & Security → Open Anyway** only if you trust this download. Do not disable Gatekeeper globally. Builds from source are also available.
+For this unnotarized release, use macOS's per-app approval in **System Settings → Privacy & Security → Open Anyway** only if you trust this download. Do not disable Gatekeeper globally. Builds from source are also available.
 
 ## Included
 
