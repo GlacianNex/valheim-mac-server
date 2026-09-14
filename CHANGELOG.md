@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1 — native preview
+
+- Normalize macOS executable path aliases before checking process ownership, so status works consistently from temporary and alternate installation locations.
+- Add a regression test that also rejects reused PIDs with a different start time.
+
 ## 0.1.0 — native preview
 
 - Native-only macOS menu bar server manager with an automatic Valve download flow.

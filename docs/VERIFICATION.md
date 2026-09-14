@@ -4,7 +4,7 @@
 
 Test host: Apple Silicon, macOS 26.6.2. Tests use isolated application roots and disposable worlds on a separate UDP port pair.
 
-- 17 Swift unit tests pass: profile preservation, unchanged selection on creation, immutable world filenames, validation, literal argument passing, modifier round-trip, modern/ZIP copy imports, rejection of symlinks/incomplete imports, private file permissions, unrelated-process protection, active-service locking, occupied-port rejection, isolated login-item guards, and last-reported player parsing.
+- 18 Swift unit tests pass: profile preservation, unchanged selection on creation, immutable world filenames, validation, literal argument passing, modifier round-trip, modern/ZIP copy imports, rejection of symlinks/incomplete imports, private file permissions, unrelated-process protection, canonical macOS executable-path aliases, active-service locking, occupied-port rejection, isolated login-item guards, and last-reported player parsing.
 - The app installer downloads SteamCMD and dedicated-server app 896660 anonymously, validates the native executable's signature and both Intel/Apple Silicon slices, and installs into its own runtime directory.
 - The Steam server depot does not include `steamclient.dylib`. The service uses the universal Steam client libraries already supplied by SteamCMD through a private `DYLD_FALLBACK_LIBRARY_PATH`. It does not install or launch the Steam app.
 - A native test world reaches an active crossplay session with a join code and zero players.

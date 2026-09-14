@@ -109,6 +109,19 @@ final class CoreTests: XCTestCase {
         try Lifecycle(paths: paths).requestStop(wait: false)
         XCTAssertTrue(process.isRunning)
     }
+    func testOwnedExecutableRecognizesCanonicalPathAliases() throws {
+        let aliasRoot = URL(fileURLWithPath: "/private/tmp").appendingPathComponent("vsm-process-" + UUID().uuidString)
+        let isolated = Paths(root: aliasRoot); try isolated.prepare()
+        defer { try? FileManager.default.removeItem(at: aliasRoot) }
+        try FileManager.default.createDirectory(at: isolated.executable.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try FileManager.default.copyItem(at: URL(fileURLWithPath: "/bin/sleep"), to: isolated.executable)
+        let process = Process(); process.executableURL = isolated.executable; process.arguments = ["20"]; try process.run()
+        defer { process.terminate(); process.waitUntilExit() }
+        let record = RunningRecord(pid: process.processIdentifier, executable: isolated.executable.resolvingSymlinksInPath().path, started: Lifecycle.birth(process.processIdentifier), profile: "fixture", log: "")
+        XCTAssertTrue(Lifecycle(paths: isolated).owns(record))
+        let reusedPID = RunningRecord(pid: process.processIdentifier, executable: record.executable, started: "different process birth time", profile: "fixture", log: "")
+        XCTAssertFalse(Lifecycle(paths: isolated).owns(reusedPID))
+    }
     func testActiveServiceRejectsSwitchAndEdit() throws {
         let store = try Store(paths: paths), p = profile(); try store.save(p)
         let fd = open(paths.file("service.lock").path, O_CREAT | O_RDWR, 0o600)

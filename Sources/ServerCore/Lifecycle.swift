@@ -33,8 +33,11 @@ public final class Lifecycle {
     }
     public var record: RunningRecord? { try? JSONDecoder().decode(RunningRecord.self, from: Data(contentsOf: paths.file("running.json"))) }
     public func owns(_ record: RunningRecord) -> Bool {
-        record.executable == paths.executable.resolvingSymlinksInPath().path &&
-        Self.executable(record.pid) == record.executable && !record.started.isEmpty && Self.birth(record.pid) == record.started
+        let actual = Self.executable(record.pid)
+        guard !actual.isEmpty else { return false }
+        let canonicalActual = URL(fileURLWithPath: actual).resolvingSymlinksInPath().path
+        return record.executable == paths.executable.resolvingSymlinksInPath().path &&
+            canonicalActual == record.executable && !record.started.isEmpty && Self.birth(record.pid) == record.started
     }
     public var isActive: Bool {
         if let record, owns(record) { return true }
