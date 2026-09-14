@@ -13,6 +13,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var timer: Timer?
     var busy = false
     var refreshing = false
+    var startFeedback = StartFeedback()
+    var statusGeneration = 0
     var setup: SetupWindow?
     let engine = Engine()
     var displayed = ServerStatusPlaceholder()
@@ -29,7 +31,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         refresh()
         if CommandLine.arguments.contains("--new-profile") { newProfile() }
         else if (try? Store(paths: engine.paths).load().profiles.isEmpty) != false || !FileManager.default.isExecutableFile(atPath: engine.paths.executable.path) { showSetup() }
-        timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { _ in self.refresh() }
+        let statusTimer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in self?.refresh() }
+        RunLoop.main.add(statusTimer, forMode: .common)
+        timer = statusTimer
     }
     func command(_ action: String, args: [String] = [], input: Data? = nil) -> (Int32, String) {
         do { return (0, try engine.execute(action, arguments: args, input: input)) }
@@ -38,12 +42,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func refresh() {
         guard !refreshing else { return }
         refreshing = true
+        let generation = statusGeneration
         DispatchQueue.global(qos: .utility).async {
             let result = self.command("status")
             let parsed = result.0 == 0 ? try? JSONDecoder().decode(ServerStatusPlaceholder.self, from: Data(result.1.utf8)) : nil
             DispatchQueue.main.async {
                 self.refreshing = false
+                guard generation == self.statusGeneration else { self.refresh(); return }
                 self.displayed = parsed ?? ServerStatusPlaceholder()
+                if self.startFeedback.observe(running: parsed?.running == true) {
+                    self.displayed.state = "Start not confirmed"
+                    let alert = NSAlert(); alert.messageText = "Server startup has not been confirmed"
+                    alert.informativeText = "The start request was sent, but the background service has not reported running. Open the server log for details. The manager will keep checking its status."
+                    alert.addButton(withTitle: "Open Server Log"); alert.addButton(withTitle: "OK")
+                    self.rebuild()
+                    if alert.runModal() == .alertFirstButtonReturn { self.openLog() }
+                }
                 self.rebuild()
             }
         }
@@ -54,8 +68,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(row)
     }
     func rebuild() {
-        let online = displayed.state == "Online"
-        let color: NSColor = online ? .systemGreen : (displayed.running ? .systemOrange : .systemRed)
+        let starting = startFeedback.pending || displayed.state == "Starting"
+        let active = displayed.running || startFeedback.pending
+        let state = startFeedback.pending ? "Starting…" : displayed.state
+        let online = displayed.state == "Online" && !startFeedback.pending
+        let color: NSColor = online ? .systemGreen : (active ? .systemOrange : .systemRed)
         let branding = NSImage(named: NSImage.applicationIconName)
         let light = NSImage(size: NSSize(width: 34, height: 18), flipped: false) { rect in
             branding?.draw(in: NSRect(x: 0, y: 0, width: 18, height: 18))
@@ -67,29 +84,30 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.image = light
         item.button?.imagePosition = .imageLeading
         item.button?.font = NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .medium)
-        item.button?.title = " Valhiem · " + (displayed.players.isEmpty ? "—" : displayed.players)
-        item.button?.toolTip = "Valhiem Server Manager for Mac — \(displayed.profileName) — \(displayed.state), \(displayed.players.isEmpty ? "unknown" : displayed.players) players"
+        item.button?.title = " Valhiem · " + (starting ? "Starting…" : (displayed.players.isEmpty ? "—" : displayed.players))
+        item.button?.toolTip = "Valhiem Server Manager for Mac — \(displayed.profileName) — \(state), \(displayed.players.isEmpty ? "unknown" : displayed.players) players"
         let menu = NSMenu(); menu.autoenablesItems = false
         add(menu, "Valhiem Server Manager for Mac")
         menu.addItem(.separator())
-        add(menu, "\(displayed.profileName) — \(displayed.state)")
-        add(menu, displayed.players.isEmpty ? "Players: —" : "Players: \(displayed.players) (last reported)")
-        if !displayed.code.isEmpty { add(menu, "Join code: \(displayed.code) · Copy", #selector(copyCode)) }
+        add(menu, "\(displayed.profileName) — \(state)")
+        if starting { add(menu, startFeedback.pending ? "Waiting for the background service to start…" : "Preparing the world and connecting to the network…") }
+        add(menu, starting || displayed.players.isEmpty ? "Players: —" : "Players: \(displayed.players) (last reported)")
+        if !starting && !displayed.code.isEmpty { add(menu, "Join code: \(displayed.code) · Copy", #selector(copyCode)) }
         menu.addItem(.separator())
         let profilesMenu = NSMenu(); profilesMenu.autoenablesItems = false
         for profile in displayed.profiles {
             let row = NSMenuItem(title: profile.label, action: #selector(selectProfile(_:)), keyEquivalent: "")
             row.target = self; row.representedObject = profile.id; row.state = profile.id == displayed.selected ? .on : .off
-            row.isEnabled = !busy && !displayed.running
+            row.isEnabled = !busy && !active
             profilesMenu.addItem(row)
         }
         let profilesRow = NSMenuItem(title: "Selected Server", action: nil, keyEquivalent: ""); profilesRow.submenu = profilesMenu; profilesRow.isEnabled = true; menu.addItem(profilesRow)
-        add(menu, "Set Up / Update Native Server…", #selector(showSetup), enabled: !busy && !displayed.running)
+        add(menu, "Set Up / Update Native Server…", #selector(showSetup), enabled: !busy && !active)
         add(menu, "New Server Profile…", #selector(newProfile), enabled: !busy)
-        add(menu, "Edit Selected Profile…", #selector(editProfile), enabled: !busy && !displayed.running && !displayed.selected.isEmpty)
-        if displayed.running { add(menu, "Stop server to switch or edit profiles") }
+        add(menu, "Edit Selected Profile…", #selector(editProfile), enabled: !busy && !active && !displayed.selected.isEmpty)
+        if active { add(menu, "Stop server to switch or edit profiles") }
         menu.addItem(.separator())
-        add(menu, busy ? "Please wait…" : "Start Server", #selector(startServer), enabled: !busy && !displayed.running && displayed.installed && !displayed.selected.isEmpty)
+        add(menu, starting ? "Starting Server…" : (busy ? "Please wait…" : "Start Server"), #selector(startServer), enabled: !busy && !active && displayed.installed && !displayed.selected.isEmpty)
         add(menu, "Stop Server (Save & Stop)", #selector(stopServer), enabled: !busy && displayed.running && displayed.state != "Installing")
         menu.addItem(.separator())
         add(menu, "Automatically Start Server at Login", #selector(toggleAutostart), enabled: !busy)
@@ -107,11 +125,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     func perform(_ action: String, args: [String] = []) {
         guard !busy else { return }
+        if action == "start" {
+            guard !startFeedback.pending else { return }
+            startFeedback.begin()
+            statusGeneration += 1
+        }
         busy = true; rebuild()
         DispatchQueue.global(qos: .userInitiated).async {
             let result = self.command(action, args: args)
             DispatchQueue.main.async {
                 self.busy = false
+                if action == "start" {
+                    self.startFeedback.commandFinished(success: result.0 == 0)
+                    self.statusGeneration += 1
+                }
+                self.rebuild()
                 if result.0 != 0 {
                     NSApp.activate(ignoringOtherApps: true)
                     let alert = NSAlert(); alert.messageText = "Valhiem Server Manager for Mac needs attention"
