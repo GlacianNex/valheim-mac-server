@@ -15,6 +15,14 @@ The macOS login service identifiers are:
 
 Other launch agents are never modified. macOS may list these items under Login Items / Allow in the Background. Disabling them there can prevent automatic startup.
 
+## Valheim server updates
+
+The menu's **Server build** row shows the installed Steam build number. This identifies the exact installed release; it is not Valheim's marketing version number. The manager checks Valve's public (stable) branch at launch and every 15 minutes. These checks use a separate copy of Valve's downloader and leave the running server and its libraries untouched.
+
+When a newer build is available, click the row and confirm **Update Server**. A running server saves and stops, the latest stable build is installed, and the same selected world is restarted after success. Players disconnect during this update. A stopped server stays stopped. If installation fails, the manager shows the error and does not attempt a restart. Profiles and world data are preserved.
+
+Click an up-to-date row to check again, or retry when a check is unavailable. Technical check details are in `version-check.log`; update progress is in `installation.log`. App updates and Valheim server updates are separate operations.
+
 ## Existing worlds
 
 Stop the source server or choose a consistent backup before importing. Select a ZIP containing exactly one world, a modern world folder, or a legacy `.db` with its adjacent `.fwl`. Set World filename to match the imported folder/file name. The import is copied into a new profile. The source remains untouched.

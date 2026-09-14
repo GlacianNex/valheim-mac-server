@@ -21,6 +21,7 @@ For an unnotarized preview, use macOS's per-app approval in **System Settings â†
 ## Included
 
 - Automatic native server download and manual server updates, with installation progress and retry.
+- The menu shows the installed server's Steam build and checks Valve's stable release on launch and every 15 minutes while hosting continues. Click an available update to save, stop, update, and restart the same world.
 - Open a newer downloaded app and choose **Update & Open** to replace the installed manager while preserving profiles and worlds. If hosting, **Save, Stop & Update** stops the server first.
 - Intel and Apple Silicon app binaries; macOS 13 or later.
 - Saved profiles with separate world directories. Only one app-managed server runs at once.

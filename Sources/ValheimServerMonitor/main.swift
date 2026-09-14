@@ -15,6 +15,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var refreshing = false
     var startFeedback = StartFeedback()
     var statusGeneration = 0
+    var installedBuild: String?
+    var latestBuild: String?
+    var checkingVersion = false
+    var versionCheckFailed = false
+    var lastVersionCheck: Date?
+    var serverUpdate: ServerUpdateWindow?
     var setup: SetupWindow?
     let engine = Engine()
     var displayed = ServerStatusPlaceholder()
@@ -40,6 +46,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         catch { return (1, error.localizedDescription) }
     }
     func refresh() {
+        checkServerVersion()
         guard !refreshing else { return }
         refreshing = true
         let generation = statusGeneration
@@ -93,6 +100,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if starting { add(menu, startFeedback.pending ? "Waiting for the background service to start…" : "Preparing the world and connecting to the network…") }
         add(menu, starting || displayed.players.isEmpty ? "Players: —" : "Players: \(displayed.players) (last reported)")
         if !starting && !displayed.code.isEmpty { add(menu, "Join code: \(displayed.code) · Copy", #selector(copyCode)) }
+        if let installedBuild {
+            let suffix: String
+            if checkingVersion { suffix = "Checking for updates…" }
+            else if versionCheckFailed { suffix = "Check unavailable · Retry" }
+            else if let latestBuild, ServerVersion.updateAvailable(installed: installedBuild, latest: latestBuild) { suffix = "Update to \(latestBuild)…" }
+            else if latestBuild != nil { suffix = "Up to date" }
+            else { suffix = "Check for updates" }
+            add(menu, "Server build \(installedBuild) — \(suffix)", #selector(serverVersionClicked), enabled: !busy && !checkingVersion && !startFeedback.pending)
+        } else { add(menu, "Server version: not installed or unavailable") }
         menu.addItem(.separator())
         let profilesMenu = NSMenu(); profilesMenu.autoenablesItems = false
         for profile in displayed.profiles {
@@ -150,6 +166,39 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     @objc func selectProfile(_ sender: NSMenuItem) { if let id = sender.representedObject as? String { perform("select-profile", args: [id]) } }
+    func checkServerVersion(force: Bool = false) {
+        guard !checkingVersion, !busy, force || lastVersionCheck == nil || Date().timeIntervalSince(lastVersionCheck!) >= 900 else { return }
+        installedBuild = ServerVersion.installed(paths: engine.paths)
+        lastVersionCheck = Date()
+        guard installedBuild != nil else { return }
+        checkingVersion = true
+        DispatchQueue.global(qos: .utility).async {
+            let build = try? ServerVersion.check(paths: self.engine.paths)
+            DispatchQueue.main.async {
+                self.checkingVersion = false; self.latestBuild = build; self.versionCheckFailed = build == nil
+                self.installedBuild = ServerVersion.installed(paths: self.engine.paths)
+                self.rebuild()
+            }
+        }
+    }
+    @objc func serverVersionClicked() {
+        guard !busy, !checkingVersion else { return }
+        guard let installedBuild, let latestBuild, !versionCheckFailed,
+              ServerVersion.updateAvailable(installed: installedBuild, latest: latestBuild) else {
+            checkServerVersion(force: true); rebuild(); return
+        }
+        let alert = NSAlert(); alert.messageText = "Update the Valheim server?"
+        alert.informativeText = "Install Valve’s latest stable server build (currently \(latestBuild)). If running, the server will save and stop, disconnecting players, then restart the same world after a successful update. Your profiles and worlds are preserved."
+        alert.addButton(withTitle: "Update Server"); alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        busy = true; rebuild()
+        serverUpdate = ServerUpdateWindow(engine: engine) { [weak self] in
+            guard let self else { return }
+            self.busy = false; self.serverUpdate = nil
+            self.statusGeneration += 1
+            self.checkServerVersion(force: true); self.refresh()
+        }
+    }
     func showEditor(_ action: String) {
         let result = command(action)
         guard result.0 == 0, let profile = try? JSONSerialization.jsonObject(with: Data(result.1.utf8)) as? [String:Any] else { return }
@@ -184,7 +233,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func showError() { let alert = NSAlert(); alert.messageText = "Last server error"; alert.informativeText = displayed.detail; alert.runModal() }
     @objc func showSetup() {
         if let setup { setup.window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true); return }
-        setup = SetupWindow(engine: engine, onCreate: { [weak self] in self?.newProfile() }, onChange: { [weak self] in self?.refresh() }, onClose: { [weak self] in self?.setup = nil })
+        setup = SetupWindow(engine: engine, onCreate: { [weak self] in self?.newProfile() }, onChange: { [weak self] in self?.lastVersionCheck = nil; self?.refresh() }, onClose: { [weak self] in self?.setup = nil })
     }
     @objc func quit() { NSApp.terminate(nil) }
 }
