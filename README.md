@@ -1,12 +1,14 @@
-# Valheim Server Monitor
+# Valheim Server Monitor for Mac
 
-A native macOS menu bar app that installs and manages a Valheim dedicated server. Create a world, import a copy of a save, host in the background, and see server status without keeping a terminal open.
+Host a Valheim dedicated server on your Mac. This native macOS menu bar app installs the server, creates or imports worlds, and manages hosting in the background without keeping a terminal open.
+
+**Requires macOS 13 Ventura or later.** The download includes Apple Silicon and Intel Mac binaries. Runtime testing is currently on Apple Silicon; Intel hardware validation is still pending. Allow 6 GB of free disk space for installation and updates. The hosting app is for macOS only.
 
 **Early preview.** Native installation, startup, and shutdown are being tested on Apple Silicon. The initial downloadable preview is ad-hoc signed, **not Developer ID signed or notarized**. macOS may block first launch. A notarized release is the remaining distribution step before the intended low-friction experience. Do not treat the preview as a production-tested replacement for an existing server.
 
-[Download preview releases](https://github.com/GlacianNex/valhiem-mac-server/releases) · [Setup and recovery](docs/SETUP.md) · [Development](CONTRIBUTING.md)
+[Download for Mac — preview releases](https://github.com/GlacianNex/valhiem-mac-server/releases) · [Mac setup and recovery](docs/SETUP.md) · [Development](CONTRIBUTING.md)
 
-## Getting started
+## Getting started on your Mac
 
 1. Download and unzip **Valheim-Server-Monitor.zip**. Open the app and let it copy itself into Applications (or drag it there in Finder).
 2. Choose **Install Native Server**. The app downloads the server directly from Valve; no Steam account, running Steam client, Python, or CrossOver is required. On Apple Silicon, Valve's installer may need a one-time Rosetta installation, which the app asks you to approve. The server runs natively on Apple Silicon.
@@ -19,6 +21,7 @@ For an unnotarized preview, use macOS's per-app approval in **System Settings �
 ## Included
 
 - Automatic native server download and manual server updates, with installation progress and retry.
+- Open a newer downloaded app and choose **Update & Open** to replace the installed monitor while preserving profiles and worlds. If hosting, **Save, Stop & Update** stops the server first.
 - Intel and Apple Silicon app binaries; macOS 13 or later.
 - Saved profiles with separate world directories. Only one app-managed server runs at once.
 - Copy-only imports of a one-world ZIP, modern world folder, or legacy `.db` with matching `.fwl`.

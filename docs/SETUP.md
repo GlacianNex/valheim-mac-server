@@ -1,4 +1,6 @@
-# Setup and recovery
+# Mac setup and recovery
+
+This guide is for hosting a Valheim dedicated server on **macOS 13 Ventura or later**. The app includes Apple Silicon and Intel binaries; runtime testing is currently on Apple Silicon. Have about 6 GB of free disk space available. On Apple Silicon, Valve's download tool may need Rosetta; the app offers to install it. The dedicated server itself runs natively.
 
 ## First run
 
