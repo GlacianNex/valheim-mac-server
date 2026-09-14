@@ -10,7 +10,9 @@ Test host: Apple Silicon, macOS 26.6.2. Tests use isolated application roots and
 - A native test world reaches an active crossplay session with a join code and zero players.
 - Two complete lifecycle cycles pass: native startup, SIGINT shutdown, all five save stages completed, a reload of the saved chunks, and save number 2.
 - Universal app packaging and ad-hoc signature verification pass.
-- The first-run setup window was inspected through macOS accessibility: install action, progress/status, login choice, and gated create/import action.
+- First-run setup and profile-editor screenshots were inspected. A disposable profile was entered and saved through the native UI; underlined help and field values displayed correctly.
+- A uniquely named temporary launchd job successfully started the native server via RunAtLoad, followed by a clean stop and removal of that job. Existing login items were not changed.
+- GitHub macOS CI passed all unit tests and built/uploaded the universal app.
 - The developer's unrelated existing server remains running. Its installed monitor, profile configuration, and existing launch-agent files are checked separately for unchanged content.
 
 ## Before a stable release

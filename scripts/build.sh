@@ -39,5 +39,5 @@ else
 fi
 codesign --verify --deep --strict "$app"
 ditto -c -k --keepParent "$app" dist/Valheim-Server-Monitor.zip
-shasum -a 256 dist/Valheim-Server-Monitor.zip > dist/SHA256SUMS.txt
+(cd dist && shasum -a 256 Valheim-Server-Monitor.zip > SHA256SUMS.txt)
 printf 'Built %s\n' "$app"

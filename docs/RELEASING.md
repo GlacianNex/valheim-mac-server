@@ -20,7 +20,7 @@ xcrun stapler staple 'dist/Valheim Server Monitor.app'
 xcrun stapler validate 'dist/Valheim Server Monitor.app'
 spctl --assess --type execute --verbose=2 'dist/Valheim Server Monitor.app'
 ditto -c -k --keepParent 'dist/Valheim Server Monitor.app' dist/Valheim-Server-Monitor.zip
-shasum -a 256 dist/Valheim-Server-Monitor.zip > dist/SHA256SUMS.txt
+(cd dist && shasum -a 256 Valheim-Server-Monitor.zip > SHA256SUMS.txt)
 ```
 
 Create the `VSM_NOTARY` credential profile with Apple's `notarytool store-credentials` on your own machine. Never put the password, API key, certificate, or private key in source control.

@@ -57,7 +57,7 @@ jobs:
           xcrun stapler validate 'dist/Valheim Server Monitor.app'
           spctl --assess --type execute --verbose=2 'dist/Valheim Server Monitor.app'
           ditto -c -k --keepParent 'dist/Valheim Server Monitor.app' dist/Valheim-Server-Monitor.zip
-          shasum -a 256 dist/Valheim-Server-Monitor.zip > dist/SHA256SUMS.txt
+          (cd dist && shasum -a 256 Valheim-Server-Monitor.zip > SHA256SUMS.txt)
       - name: Create draft prerelease
         env:
           GH_TOKEN: ${{ github.token }}

@@ -11,7 +11,7 @@ A downloaded macOS app can install the native Valheim dedicated server from Valv
 - [x] Preserve user data: isolated development root; no migration or changes to the existing private installation.
 - [x] Focused unit and isolated native integration tests; verify original server remains online.
 - [x] Original icon, universal app packaging, reproducible builds, CI and release workflow.
-- [ ] GitHub repository, open-source license, setup/contribution/security docs, release notes and downloadable preview.
+- [x] GitHub repository, open-source license, setup/contribution/security docs, release notes and downloadable preview.
 
 ## Boundaries
 Native macOS is the first-release runtime. CrossOver remains available through the user's existing installation; automatic migration and managing third-party running servers are deferred. Do not copy existing credentials, saves, logs, branding, or personal paths into source control. No changes to the installed Valhiem Server Monitor app or its launch agents. Public distribution must state whether its binary is notarized; never claim signing that was not performed.
