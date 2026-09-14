@@ -4,7 +4,7 @@ Host a Valheim dedicated server on your Mac. This native macOS menu bar app inst
 
 **Requires macOS 13 Ventura or later.** The download includes Apple Silicon and Intel Mac binaries. Runtime testing is currently on Apple Silicon; Intel hardware validation is still pending. Allow 6 GB of free disk space for installation and updates. The hosting app is for macOS only.
 
-**Early release.** Native installation, startup, and shutdown are being tested on Apple Silicon. The downloadable release is ad-hoc signed, **not Developer ID signed or notarized**. macOS may block first launch. A notarized release is the remaining distribution step before the intended low-friction experience. Do not treat this early release as a production-tested replacement for an existing server.
+**Early release.** Native installation, startup, and shutdown are being tested on Apple Silicon. Starting with **0.1.8**, the GitHub download is **Developer ID signed and notarized by Apple**, with the notarization ticket attached. Do not treat this early release as a production-tested replacement for an existing server.
 
 [Download for Mac](https://github.com/GlacianNex/valhiem-mac-server/releases/latest) · [Mac setup and recovery](docs/SETUP.md) · [Development](CONTRIBUTING.md)
 
@@ -16,7 +16,7 @@ Host a Valheim dedicated server on your Mac. This native macOS menu bar app inst
 
 Crossplay is enabled by default, using Valheim's relay networking. The app displays the join code when the server reports one. Steam-only hosting requires forwarding the chosen UDP port and the next port on your router. The manager cannot change your router configuration.
 
-For this unnotarized release, use macOS's per-app approval in **System Settings → Privacy & Security → Open Anyway** only if you trust this download. Do not disable Gatekeeper globally. Builds from source are also available.
+Download version **0.1.8 or later** for Apple notarization. Earlier downloads and default local builds are not notarized. macOS may still show its normal first-open confirmation for an app downloaded from the internet.
 
 ## Included
 

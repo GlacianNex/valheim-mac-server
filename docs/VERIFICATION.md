@@ -29,9 +29,16 @@ Test host: Apple Silicon, macOS 26.6.2. Tests use isolated application roots and
 - The actual Update & Open action replaced the running public 0.1.2 monitor with 0.1.4 and reopened setup from Applications. The installed bundle version and executable path were checked. No game server was started for this UI test.
 - Universal build passes. Updating while hosting still needs an end-to-end test with a disposable running server; it uses the existing graceful-stop path and requires the server lock before replacement.
 
+## Release 0.1.8 signing checks — 2026-09-14
+
+- Universal app signed with Developer ID Application, hardened runtime, and a secure timestamp.
+- Apple accepted notarization submission `9baf4c9e-ba39-4b84-926b-7843f29bc951`; the ticket was stapled before packaging the final ZIP.
+- The final ZIP was extracted into a separate directory. Signature and stapled-ticket validation passed, and local Gatekeeper assessment returned `Notarized Developer ID`.
+- This release changes distribution signing, not server behavior. The running installed server was not restarted or replaced.
+
 ## Remaining stable-release checks
 
-- Developer ID signing, Apple notarization, and clean-download Gatekeeper verification.
+- Browser-download first launch on another Mac, without removing quarantine or using Open Anyway.
 - A real remote player joining and leaving; log-based counts are not an authoritative live query.
 - Intel hardware runtime validation (the binary builds for Intel; the local runtime test is Apple Silicon).
 - A real logout/reboot/login cycle and macOS background-item permission variations.

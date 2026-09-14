@@ -9,7 +9,7 @@ This project distributes directly from GitHub using **Developer ID Application s
 - `scripts/apple-preflight.sh` checks distribution identity availability before a signed build.
 - `scripts/notarize.sh` validates the signed bundle, submits the exact archive, requires Apple's Accepted status, staples and validates the ticket, runs Gatekeeper assessment, and recreates the ZIP/checksum afterward.
 - The GitHub release workflow uses that same script and saves notarization diagnostics on failure.
-- Actual Developer ID signing, Apple submission, and clean-download testing remain pending. An Apple Development certificate cannot substitute for Developer ID.
+- Version 0.1.8 was Developer ID signed and accepted by Apple on 2026-09-14. Ticket stapling, ticket validation, signature verification, and local Gatekeeper assessment passed. Browser-download testing on another Mac remains pending. An Apple Development certificate cannot substitute for Developer ID.
 
 ## Account steps for the maintainer
 
