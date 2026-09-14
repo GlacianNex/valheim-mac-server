@@ -4,7 +4,7 @@ A native macOS menu bar app that installs and manages a Valheim dedicated server
 
 **Early preview.** Native installation, startup, and shutdown are being tested on Apple Silicon. The initial downloadable preview is ad-hoc signed, **not Developer ID signed or notarized**. macOS may block first launch. A notarized release is the remaining distribution step before the intended low-friction experience. Do not treat the preview as a production-tested replacement for an existing server.
 
-[Download preview releases](https://github.com/GlacianNex/valheim-server-monitor/releases) · [Setup and recovery](docs/SETUP.md) · [Development](CONTRIBUTING.md)
+[Download preview releases](https://github.com/GlacianNex/valhiem-mac-server/releases) · [Setup and recovery](docs/SETUP.md) · [Development](CONTRIBUTING.md)
 
 ## Getting started
 
