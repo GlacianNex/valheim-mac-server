@@ -9,6 +9,8 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+      - name: Validate packaging scripts
+        run: bash -n scripts/build.sh scripts/apple-preflight.sh scripts/notarize.sh
       - name: Unit tests
         run: swift test
       - name: Build universal app

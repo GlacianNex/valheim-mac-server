@@ -1,6 +1,8 @@
 # Releasing
 
-The release ZIP contains the monitor only. SteamCMD and Valheim are downloaded separately from Valve during setup.
+The release ZIP contains the manager only. SteamCMD and Valheim are downloaded separately from Valve during setup.
+
+Start with [Apple distribution preparation](APPLE-DISTRIBUTION.md) for enrollment, certificates, Keychain credentials, and release qualification.
 
 ## Local build
 
@@ -22,6 +24,8 @@ spctl --assess --type execute --verbose=2 'dist/Valhiem Server Manager for Mac.a
 ditto -c -k --keepParent 'dist/Valhiem Server Manager for Mac.app' dist/Valhiem-Server-Manager-for-Mac.zip
 (cd dist && shasum -a 256 Valhiem-Server-Manager-for-Mac.zip > SHA256SUMS.txt)
 ```
+
+For the complete automated notarization sequence, run `NOTARY_PROFILE=VSM_NOTARY scripts/notarize.sh` after the signed build. It requires Apple’s Accepted status before stapling and repackaging.
 
 Create the `VSM_NOTARY` credential profile with Apple's `notarytool store-credentials` on your own machine. Never put the password, API key, certificate, or private key in source control.
 

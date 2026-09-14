@@ -2,6 +2,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 version="${VERSION:-0.1.7}"
+[[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'VERSION must be major.minor.patch' >&2; exit 1; }
+if [[ -n "${SIGNING_IDENTITY:-}" ]]; then scripts/apple-preflight.sh; fi
 export MACOSX_DEPLOYMENT_TARGET=13.0
 swift build -c release --arch arm64 --arch x86_64
 binary_dir="$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)"

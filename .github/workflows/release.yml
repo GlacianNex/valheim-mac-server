@@ -52,12 +52,15 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
         run: |
-          xcrun notarytool submit dist/Valhiem-Server-Manager-for-Mac.zip --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD" --wait
-          xcrun stapler staple 'dist/Valhiem Server Manager for Mac.app'
-          xcrun stapler validate 'dist/Valhiem Server Manager for Mac.app'
-          spctl --assess --type execute --verbose=2 'dist/Valhiem Server Manager for Mac.app'
-          ditto -c -k --keepParent 'dist/Valhiem Server Manager for Mac.app' dist/Valhiem-Server-Manager-for-Mac.zip
-          (cd dist && shasum -a 256 Valhiem-Server-Manager-for-Mac.zip > SHA256SUMS.txt)
+          scripts/notarize.sh
+      - name: Preserve Apple notarization diagnostics
+        if: always() && inputs.notarize
+        uses: actions/upload-artifact@v4
+        with:
+          name: apple-notarization-diagnostics
+          path: dist/notarization/
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Create draft prerelease
         env:
           GH_TOKEN: ${{ github.token }}
