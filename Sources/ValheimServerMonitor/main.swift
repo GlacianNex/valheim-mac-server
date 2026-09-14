@@ -56,7 +56,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func rebuild() {
         let online = displayed.state == "Online"
         let color: NSColor = online ? .systemGreen : (displayed.running ? .systemOrange : .systemRed)
-        let branding = NSImage(systemSymbolName: "server.rack", accessibilityDescription: "Valheim server")
+        let branding = NSImage(named: NSImage.applicationIconName)
         let light = NSImage(size: NSSize(width: 34, height: 18), flipped: false) { rect in
             branding?.draw(in: NSRect(x: 0, y: 0, width: 18, height: 18))
             color.setFill()
@@ -67,9 +67,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.image = light
         item.button?.imagePosition = .imageLeading
         item.button?.font = NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .medium)
-        item.button?.title = " " + (displayed.players.isEmpty ? "—" : displayed.players)
-        item.button?.toolTip = "\(displayed.profileName) — \(displayed.state), \(displayed.players.isEmpty ? "unknown" : displayed.players) players"
+        item.button?.title = " Valheim · " + (displayed.players.isEmpty ? "—" : displayed.players)
+        item.button?.toolTip = "Valheim Server Monitor — \(displayed.profileName) — \(displayed.state), \(displayed.players.isEmpty ? "unknown" : displayed.players) players"
         let menu = NSMenu(); menu.autoenablesItems = false
+        add(menu, "Valheim Server Monitor")
+        menu.addItem(.separator())
         add(menu, "\(displayed.profileName) — \(displayed.state)")
         add(menu, displayed.players.isEmpty ? "Players: —" : "Players: \(displayed.players) (last reported)")
         if !displayed.code.isEmpty { add(menu, "Join code: \(displayed.code) · Copy", #selector(copyCode)) }

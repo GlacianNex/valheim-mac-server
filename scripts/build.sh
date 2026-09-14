@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
-version="${VERSION:-0.1.2}"
+version="${VERSION:-0.1.3}"
 export MACOSX_DEPLOYMENT_TARGET=13.0
 swift build -c release --arch arm64 --arch x86_64
 binary_dir="$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)"
