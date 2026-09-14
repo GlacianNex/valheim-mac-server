@@ -4,7 +4,7 @@ enum SettingsHelp {
     static let fields: [String:String] = [
         "label":"A unique name shown only in this monitor. Changing it does not rename your world or change the public server name.",
         "name":"The name players see in Valheim's server browser. It must not contain the server password.",
-        "world":"The save's folder name, or the .db/.fwl filename without its extension. New profiles have separate save folders. Existing world filenames are locked to prevent accidental world changes. For a chosen seed, create a world in Valheim and import it.",
+        "world":"Optional for a fresh world: leave blank to generate a filename from the profile name (for example, Friday Vikings becomes Friday_Vikings). You can enter your own filename instead. For imports, use the save's folder name or .db/.fwl filename without its extension. New profiles have separate save folders. Existing world filenames are locked to prevent accidental world changes. For a chosen seed, create a world in Valheim and import it.",
         "password":"Required when joining this server. Minimum 5 characters. Stored in the local profile file and supplied to Valheim at startup.",
         "port":"UDP base port, 1–65534; Valheim also uses the following port. Default: 2456 and 2457. Steam-only remote play requires forwarding both ports to this Mac.",
         "public":"Checked: advertise in the server browser. Unchecked: hide from the list; direct connections remain possible. This is not an access-control setting.",

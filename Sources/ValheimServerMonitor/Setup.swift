@@ -49,20 +49,41 @@ final class SetupWindow: NSObject, NSWindowDelegate {
             alert.addButton(withTitle: "Install Rosetta & Continue"); alert.addButton(withTitle: "Cancel")
             guard alert.runModal() == .alertFirstButtonReturn else { return }
         }
-        working = true; refresh(); progress.isHidden = false; progress.startAnimation(nil)
+        let logURL = engine.paths.logs.appendingPathComponent("installation.log")
+        do {
+            try engine.paths.prepare()
+            let message = Installer.needsRosetta ? "Installing Apple Rosetta…" : "Preparing download…"
+            try atomicWrite(Data("[Monitor] \(message)\n".utf8), to: logURL)
+        } catch {
+            let alert = NSAlert(); alert.messageText = "Setup could not start"
+            alert.informativeText = "The app could not write to its support folder. Check that your account has permission and your disk has free space, then try again."
+            alert.runModal(); return
+        }
+        working = true; refresh(); progress.isHidden = false; progress.isIndeterminate = true; progress.startAnimation(nil)
         window.standardWindowButton(.closeButton)?.isEnabled = false
         status.stringValue = "Preparing download…"
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             guard let self else { return }
-            let lines = tail(self.engine.paths.logs.appendingPathComponent("installation.log"), bytes: 1600).split(whereSeparator: \.isNewline)
-            if let line = lines.last { self.status.stringValue = String(line.suffix(200)) }
+            if let update = InstallationProgress.latest(in: tail(logURL, bytes: 8000)) {
+                self.status.stringValue = update.message
+                self.progress.isIndeterminate = update.percent == nil
+                if let percent = update.percent { self.progress.doubleValue = percent }
+                else { self.progress.startAnimation(nil) }
+            }
         }
         DispatchQueue.global(qos: .userInitiated).async {
             var failure: String?
             do {
                 if Installer.needsRosetta { try Installer.installRosetta() }
                 try Installer(paths: self.engine.paths).install()
-            } catch { failure = error.localizedDescription }
+            } catch {
+                failure = "Installation could not finish. Check your internet connection and available disk space, then try again. Your worlds are unchanged."
+                if let log = try? FileHandle(forWritingTo: logURL) {
+                    _ = try? log.seekToEnd()
+                    try? log.write(contentsOf: Data("\nInstallation error: \(error.localizedDescription)\n".utf8))
+                    try? log.close()
+                }
+            }
             DispatchQueue.main.async {
                 self.working = false; self.timer?.invalidate(); self.timer = nil
                 self.progress.stopAnimation(nil); self.progress.isHidden = true
@@ -70,7 +91,9 @@ final class SetupWindow: NSObject, NSWindowDelegate {
                 self.refresh(); self.onChange()
                 if let failure {
                     self.status.stringValue = failure
-                    let alert = NSAlert(); alert.messageText = "Installation needs attention"; alert.informativeText = failure; alert.runModal()
+                    let alert = NSAlert(); alert.messageText = "Installation needs attention"; alert.informativeText = failure
+                    alert.addButton(withTitle: "OK"); alert.addButton(withTitle: "Open Installation Log")
+                    if alert.runModal() == .alertSecondButtonReturn { NSWorkspace.shared.open(logURL) }
                 }
             }
         }

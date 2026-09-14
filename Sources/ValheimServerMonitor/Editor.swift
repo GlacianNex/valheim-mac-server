@@ -84,7 +84,10 @@ class ProfileEditor: NSObject, NSWindowDelegate {
             } else {
                 let t:NSTextField=secret ? NSSecureTextField():NSTextField()
                 t.stringValue=profile[key].map{String(describing:$0)} ?? "";control=t
-                if key=="world" && !(profile["id"] as? String ?? "").isEmpty {t.isEditable=false}
+                if key=="world" {
+                    if !(profile["id"] as? String ?? "").isEmpty {t.isEditable=false}
+                    else {t.placeholderString="Automatic from profile name"}
+                }
             }
             control.toolTip=SettingsHelp.fieldHelp(key)
             label.configureHelp(SettingsHelp.fieldHelp(key))
@@ -100,7 +103,7 @@ class ProfileEditor: NSObject, NSWindowDelegate {
         if (profile["id"] as? String ?? "").isEmpty {
             let b=NSButton(title:"Import World…",target:self,action:#selector(chooseImport));b.toolTip="Copy a saved world into this new profile. Accepts one-world ZIPs, world folders, or a .db with its matching .fwl. The source is never moved or modified.";stack.addArrangedSubview(b)
             importLabel.lineBreakMode = .byTruncatingMiddle;importLabel.widthAnchor.constraint(equalToConstant:590).isActive=true;stack.addArrangedSubview(importLabel)
-            note("Optional: choose one world ZIP, a world folder, or a .db with its .fwl. The world filename must match the import. Originals are copied and preserved. For a custom seed, create the world in Valheim and import it.")
+            note("For a fresh world, leave World filename blank to generate it from your profile name. To import, choose one world ZIP, a world folder, or a .db with its .fwl; the filename must match the saved world. Originals are copied and preserved. For a custom seed, create the world in Valheim and import it.")
         }
         section("Connection")
         row("port","Port");row("public","List publicly",nil,true);row("crossplay","Crossplay",nil,true);row("instanceid","Instance ID (optional)")

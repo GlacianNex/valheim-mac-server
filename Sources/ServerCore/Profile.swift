@@ -17,6 +17,9 @@ public struct Profile: Codable, Equatable {
         func text(_ key: String) -> String { form[key].map { String(describing: $0) } ?? "" }
         if let value = form["id"] as? String, !value.isEmpty { id = value }
         label = text("label"); name = text("name"); world = text("world"); password = text("password")
+        if text("id").isEmpty, text("import").isEmpty, world.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            world = Self.defaultWorldName(for: label)
+        }
         for key in ["port", "saveinterval", "backups", "backupshort", "backuplong"] {
             guard let value = Int(text(key)) else { throw MonitorError("\(key) must be a whole number.") }
             switch key { case "port": port = value; case "saveinterval": saveinterval = value; case "backups": backups = value; case "backupshort": backupshort = value; default: backuplong = value }
@@ -27,6 +30,13 @@ public struct Profile: Codable, Equatable {
         for key in Self.flagNames { flags[key] = form[key] as? Bool ?? false }
         admins = text("admins"); banned = text("banned"); permitted = text("permitted")
         try validate()
+    }
+    public static func defaultWorldName(for label: String) -> String {
+        let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_")
+        let parts = label.folding(options: .diacriticInsensitive, locale: Locale(identifier: "en_US_POSIX"))
+            .components(separatedBy: allowed.inverted).filter { !$0.isEmpty }
+        let name = String(parts.joined(separator: "_").prefix(80))
+        return name.isEmpty ? "World" : name
     }
     public var form: [String: Any] {
         var value: [String: Any] = ["id": id, "label": label, "name": name, "world": world, "password": password, "port": port, "saveinterval": saveinterval, "backups": backups, "backupshort": backupshort, "backuplong": backuplong, "public": isPublic, "crossplay": crossplay, "instanceid": instanceid, "preset": preset, "extra": extra, "admins": admins, "banned": banned, "permitted": permitted]

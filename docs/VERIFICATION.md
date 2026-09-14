@@ -15,6 +15,12 @@ Test host: Apple Silicon, macOS 26.6.2. Tests use isolated application roots and
 - GitHub macOS CI passed all unit tests and built/uploaded the universal app.
 - The developer's unrelated existing server remains running. Its installed monitor, profile configuration, and existing launch-agent files are checked separately for unchanged content.
 
+## Preview 0.1.2 checks — 2026-09-14
+
+- 24 Swift tests pass, including copy quarantine handling (source and external link targets preserved), existing-install refusal, readable SteamCMD progress, and automatic fresh-world filenames without renaming existing worlds.
+- On the local Mac, the actual Copy to Applications & Open button installed the public app and opened setup. Quitting and reopening that installed copy did not repeat the location prompt. No server installation or startup was performed during this check.
+- Universal packaging and ad-hoc signature verification pass. The clean browser-download Gatekeeper path still needs verification on another Mac; this preview is not notarized.
+
 ## Before a stable release
 
 - Developer ID signing, Apple notarization, and clean-download Gatekeeper verification.

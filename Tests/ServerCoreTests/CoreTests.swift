@@ -20,6 +20,27 @@ final class CoreTests: XCTestCase {
         XCTAssertFalse(try store.load().autostart)
         XCTAssertThrowsError(try store.selected())
     }
+    func testNewWorldFilenameDefaultsAndPreservesExistingWorlds() throws {
+        var form = profile().form
+        form["id"] = ""; form["label"] = "Friday Vikings / NYC"; form["world"] = "  "
+        let generated = try Profile(form: form)
+        XCTAssertEqual(generated.world, "Friday_Vikings_NYC")
+        let store = try Store(paths: paths)
+        try store.save(generated)
+        var edited = generated.form
+        edited["label"] = "Renamed profile"
+        try store.save(Profile(form: edited))
+        XCTAssertEqual(try store.selected().world, generated.world)
+        edited["world"] = ""
+        XCTAssertThrowsError(try Profile(form: edited))
+        form["world"] = "CustomWorld"
+        XCTAssertEqual(try Profile(form: form).world, "CustomWorld")
+        form["world"] = ""; form["import"] = "/some/saved/world"
+        XCTAssertThrowsError(try Profile(form: form))
+        XCTAssertEqual(Profile.defaultWorldName(for: "🌲"), "World")
+        XCTAssertEqual(Profile.defaultWorldName(for: "../Café:Vikings"), "Cafe_Vikings")
+        XCTAssertLessThanOrEqual(Profile.defaultWorldName(for: String(repeating: "a", count: 300)).utf8.count, 80)
+    }
     func testCreationPreservesSelectionAndSaves() throws {
         let store = try Store(paths: paths), first = profile(), second = profile("Second")
         try store.save(first)

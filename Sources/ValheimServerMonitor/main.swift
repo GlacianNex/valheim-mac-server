@@ -18,7 +18,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var displayed = ServerStatusPlaceholder()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        guard AppLocation.prepare() else { NSApp.terminate(nil); return }
+        AppLocation.prepare { ready in
+            guard ready else { NSApp.terminate(nil); return }
+            self.finishLaunching()
+        }
+    }
+    private func finishLaunching() {
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         rebuild()
         refresh()

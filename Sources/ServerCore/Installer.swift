@@ -32,7 +32,7 @@ public final class Installer {
         let runtime = paths.file("runtime"), steam = runtime.appendingPathComponent("steamcmd")
         try fm.createDirectory(at: steam, withIntermediateDirectories: true)
         let logURL = paths.logs.appendingPathComponent("installation.log")
-        fm.createFile(atPath: logURL.path, contents: Data("Downloading the native server directly from Valve…\n".utf8), attributes: [.posixPermissions: 0o600])
+        fm.createFile(atPath: logURL.path, contents: Data("[Monitor] Preparing Valve’s download tool…\n".utf8), attributes: [.posixPermissions: 0o600])
         let log = try FileHandle(forWritingTo: logURL); try log.seekToEnd(); defer { try? log.close() }
         let script = steam.appendingPathComponent("steamcmd.sh")
         if !fm.fileExists(atPath: script.path) {
@@ -45,8 +45,10 @@ public final class Installer {
         let staging = runtime.appendingPathComponent("server-download")
         let args = ["+force_install_dir", staging.path, "+login", "anonymous", "+app_update", "896660", "validate", "+quit"]
         // SteamCMD can exit once after updating itself. A second invocation completes bootstrap.
+        try log.write(contentsOf: Data("\n[Monitor] Connecting to Valve…\n".utf8))
         var result = try run(script, args, log: log)
         if result != 0 { result = try run(script, args, log: log) }
+        try log.write(contentsOf: Data("\n[Monitor] Checking the downloaded server…\n".utf8))
         let binary = staging.appendingPathComponent("valheim_server/Valheim")
         for library in ["steamclient.dylib", "libtier0_s.dylib", "libvstdlib_s.dylib", "libaudio.dylib"] {
             let file = steam.appendingPathComponent(library)
@@ -58,6 +60,7 @@ public final class Installer {
         }
         try checkCommand("/usr/bin/codesign", ["--verify", "--deep", "--strict", binary.path])
         try checkCommand("/usr/bin/lipo", [binary.path, "-verify_arch", "arm64", "x86_64"])
+        try log.write(contentsOf: Data("\n[Monitor] Finishing installation…\n".utf8))
         let backup = runtime.appendingPathComponent("server-previous")
         if fm.fileExists(atPath: backup.path) { try fm.removeItem(at: backup) }
         let hadServer = fm.fileExists(atPath: paths.server.path)
@@ -65,6 +68,6 @@ public final class Installer {
         do { try fm.moveItem(at: staging, to: paths.server) }
         catch { if hadServer { try? fm.moveItem(at: backup, to: paths.server) }; throw error }
         // Keep one previous runtime for recovery; world saves live elsewhere.
-        try log.write(contentsOf: Data("\nNative server installed. Ready to create a profile and start.\n".utf8))
+        try log.write(contentsOf: Data("\n[Monitor] Server installed. Ready to create or import a world.\n".utf8))
     }
 }
