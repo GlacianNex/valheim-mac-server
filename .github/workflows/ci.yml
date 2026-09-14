@@ -1,0 +1,21 @@
+name: Build and test
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unit tests
+        run: swift test
+      - name: Build universal app
+        run: scripts/build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Valheim-Server-Monitor-unsigned-preview
+          path: |
+            dist/Valheim-Server-Monitor.zip
+            dist/SHA256SUMS.txt

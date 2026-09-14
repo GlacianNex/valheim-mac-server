@@ -1,0 +1,76 @@
+name: Prepare release
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version (for example 0.1.0)
+        required: true
+        type: string
+      notarize:
+        description: Sign with Developer ID and notarize (requires Apple secrets)
+        type: boolean
+        default: false
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: macos-15
+    env:
+      VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate version and test
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
+          swift test
+      - name: Import Developer ID certificate
+        if: inputs.notarize
+        env:
+          CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          test -n "$CERTIFICATE" && test -n "$IDENTITY"
+          certificate_path="$RUNNER_TEMP/signing.p12"
+          keychain_path="$RUNNER_TEMP/signing.keychain-db"
+          keychain_password="$(uuidgen)"
+          echo "::add-mask::$keychain_password"
+          printf '%s' "$CERTIFICATE" | base64 --decode > "$certificate_path"
+          security create-keychain -p "$keychain_password" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$keychain_password" "$keychain_path"
+          security import "$certificate_path" -P "$CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$keychain_path"
+          security set-key-partition-list -S apple-tool:,apple: -k "$keychain_password" "$keychain_path"
+          security list-keychains -d user -s "$keychain_path"
+          echo "SIGNING_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+      - name: Build app
+        run: scripts/build.sh
+      - name: Notarize and staple
+        if: inputs.notarize
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: |
+          xcrun notarytool submit dist/Valheim-Server-Monitor.zip --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD" --wait
+          xcrun stapler staple 'dist/Valheim Server Monitor.app'
+          xcrun stapler validate 'dist/Valheim Server Monitor.app'
+          spctl --assess --type execute --verbose=2 'dist/Valheim Server Monitor.app'
+          ditto -c -k --keepParent 'dist/Valheim Server Monitor.app' dist/Valheim-Server-Monitor.zip
+          shasum -a 256 dist/Valheim-Server-Monitor.zip > dist/SHA256SUMS.txt
+      - name: Create draft prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NOTARIZED: ${{ inputs.notarize }}
+        run: |
+          if [[ "$NOTARIZED" == true ]]; then
+            printf 'Developer ID signed and notarized. See README and verification notes for preview limitations.\n' > "$RUNNER_TEMP/notes.md"
+          else
+            printf 'Unnotarized preview: macOS may block first launch. See README for per-app approval and source builds.\n' > "$RUNNER_TEMP/notes.md"
+          fi
+          gh release create "v$VERSION" dist/Valheim-Server-Monitor.zip dist/SHA256SUMS.txt --draft --prerelease --title "Valheim Server Monitor $VERSION" --notes-file "$RUNNER_TEMP/notes.md"
+      - name: Remove signing material
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/signing.keychain-db" 2>/dev/null || true
+          rm -f "$RUNNER_TEMP/signing.p12"
