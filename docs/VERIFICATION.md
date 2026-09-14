@@ -23,6 +23,14 @@ Test host: Apple Silicon, macOS 26.6.2. Tests use isolated application roots and
 
 ## Before a stable release
 
+### Preview 0.1.4 update checks
+
+- 26 Swift tests pass, including failed-replacement rollback, successful backup preservation, and rejection of older, unrelated, or unsigned update bundles before quitting the installed monitor.
+- The actual Update & Open action replaced the running public 0.1.2 monitor with 0.1.4 and reopened setup from Applications. The installed bundle version and executable path were checked. No game server was started for this UI test.
+- Universal build passes. Updating while hosting still needs an end-to-end test with a disposable running server; it uses the existing graceful-stop path and requires the server lock before replacement.
+
+## Remaining stable-release checks
+
 - Developer ID signing, Apple notarization, and clean-download Gatekeeper verification.
 - A real remote player joining and leaving; log-based counts are not an authoritative live query.
 - Intel hardware runtime validation (the binary builds for Intel; the local runtime test is Apple Silicon).

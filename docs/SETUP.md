@@ -2,7 +2,7 @@
 
 ## First run
 
-Keep the app in `/Applications/Valheim Server Monitor.app`. Its copy-to-Applications prompt helps establish a stable launch path. If that exact app already exists, open it or use Finder to replace it when updating. Application updates do not delete the separate world directory.
+Keep the app in `/Applications/Valheim Server Monitor.app`. Its copy-to-Applications prompt helps establish a stable launch path. To update, download and unzip a newer release and open the downloaded app. Starting with 0.1.4, the download offers **Update & Open** when an older version is installed. If its server is running, **Save, Stop & Update** saves and stops it first; players disconnect, and you start the server again afterward. The app validates the new copy, closes the old monitor, replaces it, and reopens from Applications. Profiles, worlds, settings, and login preferences are stored separately and preserved. If macOS brings the old monitor forward instead, quit it and open the download again. This installs a manually downloaded release; it does not check for releases or download app updates automatically.
 
 Setup downloads roughly 2 GB from Valve, with additional disk space needed during verification and updates. Crossplay is enabled by default. Select **Open Monitor at Login** and **Automatically Start Server at Login** separately in the menu. Enabling server autostart while stopped takes effect on a future boot/login; it does not immediately start the server.
 

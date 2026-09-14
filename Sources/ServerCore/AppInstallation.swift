@@ -2,6 +2,53 @@ import Foundation
 import Darwin
 
 public enum AppInstallation {
+    public static let bundleIdentifier = "io.github.glaciannex.valheimservermonitor"
+
+    public static func version(at app: URL) throws -> String {
+        let plist = app.appendingPathComponent("Contents/Info.plist")
+        guard let info = try PropertyListSerialization.propertyList(from: Data(contentsOf: plist), format: nil) as? [String: Any],
+              info["CFBundleIdentifier"] as? String == bundleIdentifier,
+              let version = info["CFBundleShortVersionString"] as? String,
+              version.range(of: #"^[0-9]+\.[0-9]+\.[0-9]+$"#, options: .regularExpression) != nil else {
+            throw MonitorError("This is not a supported Valheim Server Monitor app.")
+        }
+        return version
+    }
+
+    /// Returns a backup directory. Keep it until the replacement has launched successfully.
+    public static func update(from source: URL, to destination: URL, beforeReplacing: () throws -> Void) throws -> URL {
+        let incoming = try version(at: source), installed = try version(at: destination)
+        guard incoming.compare(installed, options: .numeric) == .orderedDescending else {
+            throw MonitorError("Version \(installed) is already installed. Open that copy from Applications. Updates must be newer than the installed version.")
+        }
+        let files = FileManager.default
+        let transaction = destination.deletingLastPathComponent().appendingPathComponent(".valheim-update-" + UUID().uuidString)
+        try files.createDirectory(at: transaction, withIntermediateDirectories: false)
+        let staged = transaction.appendingPathComponent("New.app"), backup = transaction.appendingPathComponent("Previous.app")
+        do {
+            try copy(from: source, to: staged)
+            try checkCommand("/usr/bin/codesign", ["--verify", "--deep", "--strict", staged.path])
+            try beforeReplacing()
+            try replacePrepared(staged, destination: destination, backup: backup)
+            return transaction
+        } catch {
+            // Never discard the old app if a rollback itself failed.
+            if !files.fileExists(atPath: backup.path) { try? files.removeItem(at: transaction) }
+            throw error
+        }
+    }
+
+    static func replacePrepared(_ staged: URL, destination: URL, backup: URL,
+                                move: (URL, URL) throws -> Void = { try FileManager.default.moveItem(at: $0, to: $1) }) throws {
+        try move(destination, backup)
+        do { try move(staged, destination) }
+        catch {
+            do { try move(backup, destination) }
+            catch { throw MonitorError("The update could not finish. Your previous app is preserved at \(backup.path). Move it back to Applications using Finder.") }
+            throw error
+        }
+    }
+
     /// Called only after the user approves installing the currently running app.
     public static func copy(from source: URL, to destination: URL) throws {
         let files = FileManager.default

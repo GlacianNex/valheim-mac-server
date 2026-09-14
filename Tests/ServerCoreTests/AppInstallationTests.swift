@@ -4,6 +4,44 @@ import Darwin
 @testable import ServerCore
 
 final class AppInstallationTests: XCTestCase {
+    func testReplacementRollsBackWhenInstallingNewCopyFails() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let installed = root.appendingPathComponent("Installed.app"), staged = root.appendingPathComponent("New.app"), backup = root.appendingPathComponent("Previous.app")
+        try Data("old".utf8).write(to: installed); try Data("new".utf8).write(to: staged)
+        XCTAssertThrowsError(try AppInstallation.replacePrepared(staged, destination: installed, backup: backup) { source, destination in
+            if source == staged { throw MonitorError("Simulated disk failure") }
+            try FileManager.default.moveItem(at: source, to: destination)
+        })
+        XCTAssertEqual(try String(contentsOf: installed), "old")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: backup.path))
+        try AppInstallation.replacePrepared(staged, destination: installed, backup: backup)
+        XCTAssertEqual(try String(contentsOf: installed), "new")
+        XCTAssertEqual(try String(contentsOf: backup), "old")
+    }
+
+    func testUpdateRejectsOlderWrongAndUnsignedAppsBeforeClosingMonitor() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        func fixture(_ name: String, _ version: String, identifier: String = AppInstallation.bundleIdentifier) throws -> URL {
+            let app = root.appendingPathComponent(name + ".app")
+            try FileManager.default.createDirectory(at: app.appendingPathComponent("Contents"), withIntermediateDirectories: true)
+            let data = try PropertyListSerialization.data(fromPropertyList: ["CFBundleIdentifier": identifier, "CFBundleShortVersionString": version], format: .xml, options: 0)
+            try data.write(to: app.appendingPathComponent("Contents/Info.plist"))
+            return app
+        }
+        let installed = try fixture("Installed", "0.1.3")
+        for (name, version) in [("Older", "0.1.2"), ("Same", "0.1.3"), ("Unsigned", "0.1.10")] {
+            let source = try fixture(name, version)
+            XCTAssertThrowsError(try AppInstallation.update(from: source, to: installed) { XCTFail("Must validate before closing the old monitor") })
+            XCTAssertEqual(try AppInstallation.version(at: installed), "0.1.3")
+        }
+        let unrelated = try fixture("Other", "9.0.0", identifier: "other.app")
+        XCTAssertThrowsError(try AppInstallation.update(from: unrelated, to: installed) {})
+        XCTAssertFalse(try FileManager.default.contentsOfDirectory(atPath: root.path).contains { $0.hasPrefix(".valheim-update-") })
+    }
+
     func testApprovedCopyClearsOnlyCopiedQuarantine() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
