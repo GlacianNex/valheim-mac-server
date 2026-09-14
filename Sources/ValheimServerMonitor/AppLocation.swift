@@ -26,13 +26,15 @@ enum AppLocation {
             try paths.prepare()
         } catch { showError(error); completion(false); return }
         let running = Lifecycle(paths: paths).isActive
+        let autostart = (try? Store(paths: paths).load().autostart) == true
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
         alert.messageText = updating ? "Update Valhiem Server Manager for Mac?" : "Keep Valhiem Server Manager for Mac in Applications"
         alert.informativeText = updating
             ? versionSummary + "Profiles, worlds, settings, and login preferences are preserved. The old manager will close."
             : "Background startup needs a stable app location. Copy this app to Applications before setup. Your downloaded copy and all server data are preserved."
-        if running { alert.informativeText += " The server must save and stop first. Players will disconnect; start the server again after the update." }
+        if running { alert.informativeText += " The server must save and stop first. Players will disconnect briefly. The same world will restart automatically after the updated app opens." }
+        else if autostart { alert.informativeText += " Auto-start is enabled, so the selected world will start after the updated app opens." }
         alert.addButton(withTitle: running ? "Save, Stop & Update" : (updating ? "Update & Open" : "Copy to Applications & Open"))
         alert.addButton(withTitle: "Quit")
         guard alert.runModal() == .alertFirstButtonReturn else { completion(false); return }
@@ -45,11 +47,17 @@ enum AppLocation {
         progressWindow.center(); progressWindow.makeKeyAndOrderFront(nil)
         DispatchQueue.global(qos: .userInitiated).async {
             var backup: URL?
+            var resumeProfile: String?
             do {
                 // Serialize updates, then hold the server lock through the replacement.
                 try withLock(paths.file("app-update.lock")) {
                     let lifecycle = Lifecycle(paths: paths)
-                    if running { try lifecycle.requestStop() }
+                    let wasRunning = lifecycle.isActive
+                    let database = try Store(paths: paths).load()
+                    if AppUpdateResume.shouldStart(wasRunning: wasRunning, autostart: database.autostart) {
+                        resumeProfile = try Store(paths: paths).selected().id
+                    }
+                    if wasRunning { try lifecycle.requestStop() }
                     let fd = open(paths.file("service.lock").path, O_CREAT | O_RDWR, 0o600)
                     guard fd >= 0 else { throw MonitorError("Could not check the server. Please retry the update.") }
                     defer { close(fd) }
@@ -67,8 +75,10 @@ enum AppLocation {
                     } else { try AppInstallation.copy(from: current, to: destination) }
                 }
                 let savedBackup = backup
+                let launchArguments = resumeProfile.map { ["--resume-after-update", $0] } ?? []
                 DispatchQueue.main.async {
                     let configuration = NSWorkspace.OpenConfiguration()
+                    configuration.arguments = launchArguments
                     configuration.createsNewApplicationInstance = true
                     configuration.allowsRunningApplicationSubstitution = false
                     NSWorkspace.shared.openApplication(at: destination, configuration: configuration) { application, error in

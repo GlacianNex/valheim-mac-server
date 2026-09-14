@@ -40,6 +40,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let statusTimer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in self?.refresh() }
         RunLoop.main.add(statusTimer, forMode: .common)
         timer = statusTimer
+        if let index = CommandLine.arguments.firstIndex(of: "--resume-after-update") {
+            perform("resume-after-update", args: Array(CommandLine.arguments.dropFirst(index + 1).prefix(1)))
+        }
     }
     func command(_ action: String, args: [String] = [], input: Data? = nil) -> (Int32, String) {
         do { return (0, try engine.execute(action, arguments: args, input: input)) }
@@ -141,7 +144,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     func perform(_ action: String, args: [String] = []) {
         guard !busy else { return }
-        if action == "start" {
+        if action == "start" || action == "resume-after-update" {
             guard !startFeedback.pending else { return }
             startFeedback.begin()
             statusGeneration += 1
@@ -151,7 +154,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let result = self.command(action, args: args)
             DispatchQueue.main.async {
                 self.busy = false
-                if action == "start" {
+                if action == "start" || action == "resume-after-update" {
                     self.startFeedback.commandFinished(success: result.0 == 0)
                     self.statusGeneration += 1
                 }

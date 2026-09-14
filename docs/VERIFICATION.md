@@ -36,6 +36,14 @@ Test host: Apple Silicon, macOS 26.6.2. Tests use isolated application roots and
 - The final ZIP was extracted into a separate directory. Signature and stapled-ticket validation passed, and local Gatekeeper assessment returned `Notarized Developer ID`.
 - This release changes distribution signing, not server behavior. The running installed server was not restarted or replaced.
 
+## Release 0.1.9 app-update restart checks — 2026-09-14
+
+- Apple accepted submission `3bbb1370-87aa-4cf1-a06e-beddc72f2ad8`. The extracted final ZIP passes signature, stapled-ticket, and local Gatekeeper validation.
+- 33 Swift tests pass. Regression checks cover all combinations of prior running state and auto-start preference, same-profile restart without changing saved settings, rejection of a changed or missing profile, and propagation of startup errors.
+- The updater passes the selected profile to the installed app only after successful replacement. The installed app requests startup through its normal service controller and shows immediate Starting feedback.
+- A stopped server with auto-start disabled stays stopped. Auto-start enabled starts the selected server even if it was stopped before updating.
+- An actual Applications replacement while hosting remains to be tested end to end; the live server was not interrupted for development testing.
+
 ## Remaining stable-release checks
 
 - Browser-download first launch on another Mac, without removing quarantine or using Open Anyway.

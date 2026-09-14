@@ -14,6 +14,32 @@ final class CoreTests: XCTestCase {
     func profile(_ name: String = "Test World") -> Profile {
         var p = Profile(); p.label = name; p.name = name; p.world = "TestWorld"; p.password = "test-only-password"; return p
     }
+    func testAppUpdateStartPolicy() {
+        XCTAssertTrue(AppUpdateResume.shouldStart(wasRunning: false, autostart: true))
+        XCTAssertTrue(AppUpdateResume.shouldStart(wasRunning: true, autostart: false))
+        XCTAssertTrue(AppUpdateResume.shouldStart(wasRunning: true, autostart: true))
+        XCTAssertFalse(AppUpdateResume.shouldStart(wasRunning: false, autostart: false))
+    }
+    func testAppUpdateResumesSameWorldWithoutChangingLoginPreference() throws {
+        let store = try Store(paths: paths), original = profile()
+        try store.save(original)
+        for autostart in [false, true] {
+            try store.update { $0.autostart = autostart }
+            let before = try Data(contentsOf: paths.file("profiles.json"))
+            var starts = 0
+            try AppUpdateResume.run(paths: paths, profileID: original.id) { starts += 1 }
+            XCTAssertEqual(starts, 1)
+            XCTAssertEqual(try Data(contentsOf: paths.file("profiles.json")), before)
+        }
+    }
+    func testAppUpdateRefusesMissingOrChangedWorldAndReportsStartFailure() throws {
+        let store = try Store(paths: paths), original = profile(), other = profile("Other")
+        try store.save(original); try store.save(other)
+        for id: String? in [nil, "", other.id] {
+            XCTAssertThrowsError(try AppUpdateResume.run(paths: paths, profileID: id) { XCTFail("Must not start a different world") })
+        }
+        XCTAssertThrowsError(try AppUpdateResume.run(paths: paths, profileID: original.id) { throw MonitorError("Start failed") })
+    }
     func testFreshStoreHasNoPersonalDefaults() throws {
         let store = try Store(paths: paths)
         XCTAssertTrue(try store.load().profiles.isEmpty)

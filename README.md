@@ -22,7 +22,7 @@ Download version **0.1.8 or later** for Apple notarization. Earlier downloads an
 
 - Automatic native server download and manual server updates, with installation progress and retry.
 - The menu shows the installed server's Steam build and checks Valve's stable release on launch and every 15 minutes while hosting continues. Click an available update to save, stop, update, and restart the same world.
-- Open a newer downloaded app and choose **Update & Open** to replace the installed manager while preserving profiles and worlds. If hosting, **Save, Stop & Update** stops the server first.
+- Open a newer downloaded app and choose **Update & Open** to replace the installed manager while preserving profiles and worlds. If hosting, **Save, Stop & Update** saves and stops the server first. After a successful app update, the selected world starts automatically if auto-start is enabled or the server was running before the update.
 - Intel and Apple Silicon app binaries; macOS 13 or later.
 - Saved profiles with separate world directories. Only one app-managed server runs at once.
 - Copy-only imports of a one-world ZIP, modern world folder, or legacy `.db` with matching `.fwl`.

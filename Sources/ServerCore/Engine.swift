@@ -18,6 +18,10 @@ public final class Engine {
         case "select-profile":
             guard let id = arguments.first else { throw MonitorError("Choose a profile.") }; try store.select(id)
         case "start": try LoginItems(paths: paths).start()
+        case "resume-after-update":
+            try AppUpdateResume.run(paths: paths, profileID: arguments.first) {
+                try LoginItems(paths: paths).start()
+            }
         case "stop": try lifecycle.requestStop()
         case "autostart-on": try LoginItems(paths: paths).serverAtLogin(true)
         case "autostart-off": try LoginItems(paths: paths).serverAtLogin(false)
