@@ -67,10 +67,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.image = light
         item.button?.imagePosition = .imageLeading
         item.button?.font = NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .medium)
-        item.button?.title = " Valheim · " + (displayed.players.isEmpty ? "—" : displayed.players)
-        item.button?.toolTip = "Valheim Server Monitor — \(displayed.profileName) — \(displayed.state), \(displayed.players.isEmpty ? "unknown" : displayed.players) players"
+        item.button?.title = " Valhiem · " + (displayed.players.isEmpty ? "—" : displayed.players)
+        item.button?.toolTip = "Valhiem Server Manager for Mac — \(displayed.profileName) — \(displayed.state), \(displayed.players.isEmpty ? "unknown" : displayed.players) players"
         let menu = NSMenu(); menu.autoenablesItems = false
-        add(menu, "Valheim Server Monitor")
+        add(menu, "Valhiem Server Manager for Mac")
         menu.addItem(.separator())
         add(menu, "\(displayed.profileName) — \(displayed.state)")
         add(menu, displayed.players.isEmpty ? "Players: —" : "Players: \(displayed.players) (last reported)")
@@ -94,7 +94,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(.separator())
         add(menu, "Automatically Start Server at Login", #selector(toggleAutostart), enabled: !busy)
         menu.items.last?.state = displayed.autostart ? .on : .off
-        add(menu, "Open Monitor at Login", #selector(toggleMonitorLogin), enabled: !busy)
+        add(menu, "Open Manager at Login", #selector(toggleMonitorLogin), enabled: !busy)
         menu.items.last?.state = displayed.monitorAtLogin ? .on : .off
         menu.addItem(.separator())
         if !displayed.detail.isEmpty { add(menu, "Show Last Server Error…", #selector(showError)) }
@@ -102,7 +102,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         add(menu, "Open Logs Folder", #selector(openFolder))
         add(menu, "Refresh Status", #selector(refreshNow))
         menu.addItem(.separator())
-        add(menu, "Quit Menu Bar App (Server Keeps Running)", #selector(quit))
+        add(menu, "Quit Manager (Server Keeps Running)", #selector(quit))
         item.menu = menu
     }
     func perform(_ action: String, args: [String] = []) {
@@ -114,7 +114,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self.busy = false
                 if result.0 != 0 {
                     NSApp.activate(ignoringOtherApps: true)
-                    let alert = NSAlert(); alert.messageText = "Valheim Server Monitor needs attention"
+                    let alert = NSAlert(); alert.messageText = "Valhiem Server Manager for Mac needs attention"
                     alert.informativeText = result.1; alert.runModal()
                 }
                 self.refresh()

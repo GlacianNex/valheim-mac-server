@@ -1,4 +1,4 @@
-# Valheim Server Monitor for Mac
+# Valhiem Server Manager for Mac
 
 Host a Valheim dedicated server on your Mac. This native macOS menu bar app installs the server, creates or imports worlds, and manages hosting in the background without keeping a terminal open.
 
@@ -10,25 +10,25 @@ Host a Valheim dedicated server on your Mac. This native macOS menu bar app inst
 
 ## Getting started on your Mac
 
-1. Download and unzip **Valheim-Server-Monitor.zip**. Open the app and let it copy itself into Applications (or drag it there in Finder).
+1. Download and unzip **Valhiem-Server-Manager-for-Mac.zip**. Open the app and let it copy itself into Applications (or drag it there in Finder).
 2. Choose **Install Native Server**. The app downloads the server directly from Valve; no Steam account, running Steam client, Python, or CrossOver is required. On Apple Silicon, Valve's installer may need a one-time Rosetta installation, which the app asks you to approve. The server runs natively on Apple Silicon.
 3. Choose **Create or Import a World**, set a server name and password, save, then select **Start Server** in the menu bar.
 
-Crossplay is enabled by default, using Valheim's relay networking. The app displays the join code when the server reports one. Steam-only hosting requires forwarding the chosen UDP port and the next port on your router. The monitor cannot change your router configuration.
+Crossplay is enabled by default, using Valheim's relay networking. The app displays the join code when the server reports one. Steam-only hosting requires forwarding the chosen UDP port and the next port on your router. The manager cannot change your router configuration.
 
 For an unnotarized preview, use macOS's per-app approval in **System Settings → Privacy & Security → Open Anyway** only if you trust this download. Do not disable Gatekeeper globally. Builds from source are also available.
 
 ## Included
 
 - Automatic native server download and manual server updates, with installation progress and retry.
-- Open a newer downloaded app and choose **Update & Open** to replace the installed monitor while preserving profiles and worlds. If hosting, **Save, Stop & Update** stops the server first.
+- Open a newer downloaded app and choose **Update & Open** to replace the installed manager while preserving profiles and worlds. If hosting, **Save, Stop & Update** stops the server first.
 - Intel and Apple Silicon app binaries; macOS 13 or later.
 - Saved profiles with separate world directories. Only one app-managed server runs at once.
 - Copy-only imports of a one-world ZIP, modern world folder, or legacy `.db` with matching `.fwl`.
 - World presets, modifiers, saving/backup settings, and admin/ban/allow lists, with underlined hover help.
 - Status light, last reported player count, join-code copy, and logs.
 - Graceful Save & Stop; the app does not force-kill a server after a save timeout.
-- Separate settings for opening the monitor and starting the server at login.
+- Separate settings for opening the manager and starting the server at login.
 - An idle-sleep assertion while hosting. Closing a laptop lid or logging out can still stop hosting.
 
 ## How it works
@@ -68,6 +68,6 @@ The universal app and ZIP are written to `dist/`. See [release instructions](doc
 
 ## License and attribution
 
-The monitor code and its original server/mountain icon are MIT licensed. This is an unofficial community tool, not affiliated with Iron Gate, Coffee Stain, Valve, or Apple. Valheim and SteamCMD are downloaded from Valve and remain subject to their owners' terms; their binaries, game assets, and logos are not distributed in this repository or the app ZIP.
+The manager code and its original server/mountain icon are MIT licensed. This is an unofficial community tool, not affiliated with Iron Gate, Coffee Stain, Valve, or Apple. Valheim and SteamCMD are downloaded from Valve and remain subject to their owners' terms; their binaries, game assets, and logos are not distributed in this repository or the app ZIP.
 
 Server flags follow the [official Valheim dedicated-server guide](https://www.valheimgame.com/support/a-guide-to-dedicated-servers/). The native launcher is inspected from Valve's dedicated-server app **896660**, macOS depot **896663**. See [verification notes](docs/VERIFICATION.md) for tested behavior and remaining checks.

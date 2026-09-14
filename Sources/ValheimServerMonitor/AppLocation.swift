@@ -5,7 +5,10 @@ enum AppLocation {
     static func prepare(completion: @escaping (Bool) -> Void) {
         guard !Paths().isDevelopment, Bundle.main.bundleURL.pathExtension == "app" else { completion(true); return }
         let current = Bundle.main.bundleURL.resolvingSymlinksInPath().standardizedFileURL
-        let destination = URL(fileURLWithPath: "/Applications/Valheim Server Monitor.app").resolvingSymlinksInPath().standardizedFileURL
+        // Existing launch agents refer to this path. Keep it stable for upgraded installs.
+        let legacy = URL(fileURLWithPath: "/Applications/Valheim Server Monitor.app")
+        let preferred = URL(fileURLWithPath: "/Applications/Valhiem Server Manager for Mac.app")
+        let destination = (FileManager.default.fileExists(atPath: legacy.path) && !FileManager.default.fileExists(atPath: preferred.path) ? legacy : preferred).resolvingSymlinksInPath().standardizedFileURL
         guard current != destination else { completion(true); return }
         let paths = Paths()
         let updating = FileManager.default.fileExists(atPath: destination.path)
@@ -25,16 +28,16 @@ enum AppLocation {
         let running = Lifecycle(paths: paths).isActive
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
-        alert.messageText = updating ? "Update Valheim Server Monitor?" : "Keep Valheim Server Monitor in Applications"
+        alert.messageText = updating ? "Update Valhiem Server Manager for Mac?" : "Keep Valhiem Server Manager for Mac in Applications"
         alert.informativeText = updating
-            ? versionSummary + "Profiles, worlds, settings, and login preferences are preserved. The old monitor will close."
+            ? versionSummary + "Profiles, worlds, settings, and login preferences are preserved. The old manager will close."
             : "Background startup needs a stable app location. Copy this app to Applications before setup. Your downloaded copy and all server data are preserved."
         if running { alert.informativeText += " The server must save and stop first. Players will disconnect; start the server again after the update." }
         alert.addButton(withTitle: running ? "Save, Stop & Update" : (updating ? "Update & Open" : "Copy to Applications & Open"))
         alert.addButton(withTitle: "Quit")
         guard alert.runModal() == .alertFirstButtonReturn else { completion(false); return }
         let progressWindow = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 440, height: 100), styleMask: [.titled], backing: .buffered, defer: false)
-        progressWindow.title = updating ? "Updating Valheim Server Monitor" : "Installing Valheim Server Monitor"
+        progressWindow.title = updating ? "Updating Valhiem Server Manager for Mac" : "Installing Valhiem Server Manager for Mac"
         progressWindow.isReleasedWhenClosed = false
         let progressText = NSTextField(wrappingLabelWithString: running ? "Saving and stopping the server, then updating… This can take up to two minutes." : "Preparing the app and opening it from Applications…")
         progressText.frame = NSRect(x: 20, y: 28, width: 400, height: 50)
@@ -93,16 +96,16 @@ enum AppLocation {
         // Only request a normal quit for this exact installed app. Never force-kill it.
         for application in applications {
             guard application.bundleURL?.resolvingSymlinksInPath().standardizedFileURL == destination else {
-                throw MonitorError("Quit other copies of Valheim Server Monitor, then open this download again.")
+                throw MonitorError("Quit other copies of Valhiem Server Manager for Mac, then open this download again.")
             }
             var accepted = false
             DispatchQueue.main.sync { accepted = application.terminate() }
-            guard accepted else { throw MonitorError("Quit the installed monitor, then try the update again.") }
+            guard accepted else { throw MonitorError("Quit the installed manager, then try the update again.") }
         }
         let deadline = Date().addingTimeInterval(10)
         while applications.contains(where: { !$0.isTerminated }), Date() < deadline { Thread.sleep(forTimeInterval: 0.1) }
         guard applications.allSatisfy({ $0.isTerminated }) else {
-            throw MonitorError("The installed monitor has not closed yet. Quit it and try again.")
+            throw MonitorError("The installed manager has not closed yet. Quit it and try again.")
         }
     }
 

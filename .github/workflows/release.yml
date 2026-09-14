@@ -52,12 +52,12 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
         run: |
-          xcrun notarytool submit dist/Valheim-Server-Monitor.zip --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD" --wait
-          xcrun stapler staple 'dist/Valheim Server Monitor.app'
-          xcrun stapler validate 'dist/Valheim Server Monitor.app'
-          spctl --assess --type execute --verbose=2 'dist/Valheim Server Monitor.app'
-          ditto -c -k --keepParent 'dist/Valheim Server Monitor.app' dist/Valheim-Server-Monitor.zip
-          (cd dist && shasum -a 256 Valheim-Server-Monitor.zip > SHA256SUMS.txt)
+          xcrun notarytool submit dist/Valhiem-Server-Manager-for-Mac.zip --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD" --wait
+          xcrun stapler staple 'dist/Valhiem Server Manager for Mac.app'
+          xcrun stapler validate 'dist/Valhiem Server Manager for Mac.app'
+          spctl --assess --type execute --verbose=2 'dist/Valhiem Server Manager for Mac.app'
+          ditto -c -k --keepParent 'dist/Valhiem Server Manager for Mac.app' dist/Valhiem-Server-Manager-for-Mac.zip
+          (cd dist && shasum -a 256 Valhiem-Server-Manager-for-Mac.zip > SHA256SUMS.txt)
       - name: Create draft prerelease
         env:
           GH_TOKEN: ${{ github.token }}
@@ -68,7 +68,7 @@ jobs:
           else
             printf 'Unnotarized preview: macOS may block first launch. See README for per-app approval and source builds.\n' > "$RUNNER_TEMP/notes.md"
           fi
-          gh release create "v$VERSION" dist/Valheim-Server-Monitor.zip dist/SHA256SUMS.txt --draft --prerelease --title "Valheim Server Monitor $VERSION" --notes-file "$RUNNER_TEMP/notes.md"
+          gh release create "v$VERSION" dist/Valhiem-Server-Manager-for-Mac.zip dist/SHA256SUMS.txt --draft --prerelease --title "Valhiem Server Manager for Mac $VERSION" --notes-file "$RUNNER_TEMP/notes.md"
       - name: Remove signing material
         if: always()
         run: |

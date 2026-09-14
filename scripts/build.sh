@@ -1,11 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
-version="${VERSION:-0.1.4}"
+version="${VERSION:-0.1.5}"
 export MACOSX_DEPLOYMENT_TARGET=13.0
 swift build -c release --arch arm64 --arch x86_64
 binary_dir="$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)"
-app="dist/Valheim Server Monitor.app"
+app="dist/Valhiem Server Manager for Mac.app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources" dist/AppIcon.iconset
 cp "$binary_dir/ValheimServerMonitor" "$app/Contents/MacOS/ValheimServerMonitor"
 swift scripts/make-icon.swift dist/AppIcon.png
@@ -20,8 +20,8 @@ cat > "$app/Contents/Info.plist" <<PLIST
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
 <key>CFBundleIdentifier</key><string>io.github.glaciannex.valheimservermonitor</string>
-<key>CFBundleName</key><string>Valheim Server Monitor</string>
-<key>CFBundleDisplayName</key><string>Valheim Server Monitor</string>
+<key>CFBundleName</key><string>Valhiem Server Manager for Mac</string>
+<key>CFBundleDisplayName</key><string>Valhiem Server Manager for Mac</string>
 <key>CFBundleExecutable</key><string>ValheimServerMonitor</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>$version</string>
@@ -38,6 +38,6 @@ else
     codesign --force --sign - "$app"
 fi
 codesign --verify --deep --strict "$app"
-ditto -c -k --keepParent "$app" dist/Valheim-Server-Monitor.zip
-(cd dist && shasum -a 256 Valheim-Server-Monitor.zip > SHA256SUMS.txt)
+ditto -c -k --keepParent "$app" dist/Valhiem-Server-Manager-for-Mac.zip
+(cd dist && shasum -a 256 Valhiem-Server-Manager-for-Mac.zip > SHA256SUMS.txt)
 printf 'Built %s\n' "$app"

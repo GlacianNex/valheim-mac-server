@@ -9,14 +9,14 @@ final class SetupWindow: NSObject, NSWindowDelegate {
     let progress = NSProgressIndicator()
     let install = NSButton(title: "Install Native Server", target: nil, action: nil)
     let create = NSButton(title: "Create or Import a World…", target: nil, action: nil)
-    let login = NSButton(checkboxWithTitle: "Open the monitor when I log in", target: nil, action: nil)
+    let login = NSButton(checkboxWithTitle: "Open the manager when I log in", target: nil, action: nil)
     var working = false
     var timer: Timer?
     init(engine: Engine, onCreate: @escaping () -> Void, onChange: @escaping () -> Void, onClose: @escaping () -> Void) {
         self.engine = engine; self.onCreate = onCreate; self.onChange = onChange; self.onClose = onClose
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 580, height: 500), styleMask: [.titled, .closable], backing: .buffered, defer: false)
         super.init()
-        window.title = "Set Up Valheim Server Monitor"; window.delegate = self; window.isReleasedWhenClosed = false
+        window.title = "Set Up Valhiem Server Manager for Mac"; window.delegate = self; window.isReleasedWhenClosed = false
         let stack = NSStackView(); stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 18
         stack.translatesAutoresizingMaskIntoConstraints = false
         window.contentView!.addSubview(stack)

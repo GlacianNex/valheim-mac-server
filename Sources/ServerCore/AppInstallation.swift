@@ -10,7 +10,7 @@ public enum AppInstallation {
               info["CFBundleIdentifier"] as? String == bundleIdentifier,
               let version = info["CFBundleShortVersionString"] as? String,
               version.range(of: #"^[0-9]+\.[0-9]+\.[0-9]+$"#, options: .regularExpression) != nil else {
-            throw MonitorError("This is not a supported Valheim Server Monitor app.")
+            throw MonitorError("This is not a supported Valhiem Server Manager for Mac app.")
         }
         return version
     }
@@ -53,7 +53,7 @@ public enum AppInstallation {
     public static func copy(from source: URL, to destination: URL) throws {
         let files = FileManager.default
         guard !files.fileExists(atPath: destination.path) else {
-            throw MonitorError("Valheim Server Monitor is already in Applications. Replace it in Finder to update the app. Server data is stored separately.")
+            throw MonitorError("Valhiem Server Manager for Mac is already in Applications. Replace it in Finder to update the app. Server data is stored separately.")
         }
         try files.copyItem(at: source, to: destination)
         do {

@@ -15,12 +15,12 @@ For a public notarized build, use an Apple Developer Program account with a **De
 
 ```sh
 SIGNING_IDENTITY='Developer ID Application: YOUR NAME (TEAMID)' VERSION=0.1.0 scripts/build.sh
-xcrun notarytool submit dist/Valheim-Server-Monitor.zip --keychain-profile VSM_NOTARY --wait
-xcrun stapler staple 'dist/Valheim Server Monitor.app'
-xcrun stapler validate 'dist/Valheim Server Monitor.app'
-spctl --assess --type execute --verbose=2 'dist/Valheim Server Monitor.app'
-ditto -c -k --keepParent 'dist/Valheim Server Monitor.app' dist/Valheim-Server-Monitor.zip
-(cd dist && shasum -a 256 Valheim-Server-Monitor.zip > SHA256SUMS.txt)
+xcrun notarytool submit dist/Valhiem-Server-Manager-for-Mac.zip --keychain-profile VSM_NOTARY --wait
+xcrun stapler staple 'dist/Valhiem Server Manager for Mac.app'
+xcrun stapler validate 'dist/Valhiem Server Manager for Mac.app'
+spctl --assess --type execute --verbose=2 'dist/Valhiem Server Manager for Mac.app'
+ditto -c -k --keepParent 'dist/Valhiem Server Manager for Mac.app' dist/Valhiem-Server-Manager-for-Mac.zip
+(cd dist && shasum -a 256 Valhiem-Server-Manager-for-Mac.zip > SHA256SUMS.txt)
 ```
 
 Create the `VSM_NOTARY` credential profile with Apple's `notarytool store-credentials` on your own machine. Never put the password, API key, certificate, or private key in source control.
