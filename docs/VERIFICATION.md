@@ -18,3 +18,15 @@ Test host: Apple Silicon Mac, macOS 26.6.2. Development and native integration t
 Intel hardware runtime testing, a full multi-server reboot/login cycle, and a future Valve runtime update with multiple populated servers have not been independently exercised. Universal compilation is not an Intel runtime test. Tests do not verify every in-game modifier effect or internal world chunk. Player counts are last-reported log values, and inherited settings reflect saved metadata rather than live console state.
 
 Apple notarization checks distribution integrity and malicious content; it is not App Store review or a code-quality certification. Keep these limits distinct from the 1.0.0 release label.
+
+## Release 1.1.2
+
+See [seed support](SEEDS.md) for 50 passing tests, seeded native lifecycle checks, and biome-cache equivalence evidence. The maintainer confirmed the combined 1.1.2 build worked and approved publication. The release uses that same signed and notarized ZIP.
+
+### Player-count correction
+
+The menu polls once per second. The parser now processes player-count announcements and `Connections N ZDOS:` snapshots in log order. A `Player connection lost` announcement invalidates the count because PlayFab retains the disconnected socket while reconnecting. The aggregate count stays unknown if any running server has an unknown count. Later valid announcements/snapshots restore it. Regression checks cover loss, zero snapshots, remaining players, rejoining, and unknown aggregates. Read-only replay against the two running servers' logs returned zero for both, matching the user's observation. No server restart was needed for this verification.
+
+### Stopping status
+
+An isolated service-lock/stop-request regression reproduced the incorrect aggregate Starting state before the fix, then passed with Stopping afterward. Aggregate-state tests cover stopping alongside online or starting servers, normal online state, and all stopped. All 51 tests pass. The menu title and tooltip now prioritize Stopping… during shutdown. Production servers were not stopped for these checks.

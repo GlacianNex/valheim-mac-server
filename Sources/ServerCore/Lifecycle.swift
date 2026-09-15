@@ -77,8 +77,17 @@ public final class Lifecycle {
                   let range = Range(match.range(at: 1), in: log) else { return "" }
             return String(log[range])
         }
+        // PlayFab's connection-lost count includes a socket retained for reconnect.
+        // Do not present it as a connected player. A later count/snapshot resolves it.
+        let events = try? NSRegularExpression(pattern: "Player connection lost server [^\\r\\n]*|(?:is active with|now) ([0-9]+) player|\\bConnections ([0-9]+) ZDOS:")
+        var players = ""
+        if let event = events?.matches(in: log, range: NSRange(log.startIndex..., in: log)).last {
+            for group in 1...2 {
+                if let range = Range(event.range(at: group), in: log) { players = String(log[range]); break }
+            }
+        }
         return (log.contains("Game server connected") || log.contains(" is active with "),
-                last("(?:is active with|now) ([0-9]+) player"), last("with join code ([0-9]+)"))
+                players, last("with join code ([0-9]+)"))
     }
     public func requested(_ name: String) -> Bool { (try? String(contentsOf: paths.file(name), encoding: .utf8)) == Self.bootID() }
     public func requestStart() throws {

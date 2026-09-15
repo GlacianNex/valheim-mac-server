@@ -88,10 +88,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(row)
     }
     func rebuild() {
+        let stopping = displayed.state == "Stopping" || displayed.servers.contains { $0.state == "Stopping" }
         let starting = startFeedback.pending || pendingStarts.values.contains { $0.pending } || displayed.state == "Starting"
         let active = displayed.running || starting
-        let state = startFeedback.pending ? "Starting…" : displayed.state
-        let online = displayed.state == "Online" && !startFeedback.pending
+        let state = stopping ? "Stopping…" : (starting ? "Starting…" : displayed.state)
+        let online = displayed.state == "Online" && !starting && !stopping
         let color: NSColor = online ? .systemGreen : (active ? .systemOrange : .systemRed)
         let branding = NSImage(named: NSImage.applicationIconName)
         let light = NSImage(size: NSSize(width: 34, height: 18), flipped: false) { rect in
@@ -104,8 +105,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.image = light
         item.button?.imagePosition = .imageLeading
         item.button?.font = NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .medium)
-        item.button?.title = " Valhiem · " + (starting ? "Starting…" : (displayed.players.isEmpty ? "—" : displayed.players))
-        item.button?.toolTip = "Valhiem Server Manager for Mac — \(displayed.profileName) — \(state), \(displayed.players.isEmpty ? "unknown" : displayed.players) players"
+        item.button?.title = " Valhiem · " + (stopping ? "Stopping…" : (starting ? "Starting…" : (displayed.players.isEmpty ? "—" : displayed.players)))
+        item.button?.toolTip = "Valhiem Server Manager for Mac — \(displayed.profileName) — \(state), \(displayed.players.isEmpty ? "unknown" : displayed.players) players. Refreshes every second from server logs; unknown after a lost connection until a new count is reported."
         let menu = NSMenu(); menu.autoenablesItems = false
         let appVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Development"
         add(menu, "Valhiem Server Manager for Mac · \(appVersion)")

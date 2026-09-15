@@ -4,6 +4,13 @@ import Darwin
 public final class Fleet {
     public let paths: Paths
     public init(paths: Paths) { self.paths = Paths(root: paths.root) }
+    public static func state(for servers: [ServerStatus]) -> String {
+        let running = servers.filter { $0.running }
+        if running.contains(where: { $0.state == "Stopping" }) { return "Stopping" }
+        if running.contains(where: { $0.state == "Starting" }) { return "Starting" }
+        if running.contains(where: { $0.state == "Online" }) { return "Online" }
+        return running.isEmpty ? "Stopped" : "Starting"
+    }
     public func lifecycles() throws -> [Lifecycle] {
         let store = try Store(paths: paths), db = try store.load()
         return db.profiles.map { Lifecycle(paths: store.servicePaths($0.id, database: db)) }

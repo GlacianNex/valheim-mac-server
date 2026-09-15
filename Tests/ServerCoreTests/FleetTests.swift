@@ -47,6 +47,23 @@ final class FleetTests: XCTestCase {
         let statuses = try Fleet(paths: paths).statuses()
         XCTAssertEqual(statuses.map(\.selected), [first.id, second.id])
         XCTAssertEqual(statuses.map(\.running), [true, false])
+        let aggregate = try JSONDecoder().decode(ServerStatus.self, from: Data(Engine(paths: paths).execute("status").utf8))
+        XCTAssertEqual(aggregate.players, "", "An unknown running-server count must not become a misleading zero total")
+        try Lifecycle(paths: a).requestStop(wait: false)
+        let stopping = try JSONDecoder().decode(ServerStatus.self, from: Data(Engine(paths: paths).execute("status").utf8))
+        XCTAssertEqual(stopping.state, "Stopping")
+    }
+    func testFleetStatePreservesStoppingWithOtherServersOnlineOrStarting() {
+        func server(_ state: String) -> ServerStatus {
+            var result = ServerStatus(); result.state = state; result.running = state != "Stopped"; return result
+        }
+        XCTAssertEqual(Fleet.state(for: [server("Stopping")]), "Stopping")
+        XCTAssertEqual(Fleet.state(for: [server("Online"), server("Stopping")]), "Stopping")
+        XCTAssertEqual(Fleet.state(for: [server("Starting"), server("Stopping")]), "Stopping")
+        XCTAssertEqual(Fleet.state(for: [server("Online"), server("Starting")]), "Starting")
+        XCTAssertEqual(Fleet.state(for: [server("Stopped"), server("Online")]), "Online")
+        XCTAssertEqual(Fleet.state(for: [server("Stopped")]), "Stopped")
+        XCTAssertEqual(Fleet.state(for: []), "Stopped")
     }
     func testSharedRuntimeAllowsParallelServersButBlocksUpdates() throws {
         var first: RuntimeLease? = try RuntimeLease(paths: paths, exclusive: false)

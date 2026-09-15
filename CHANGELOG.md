@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.2 — 2026-09-14
+
+- The top bar shows Stopping… during shutdown, including when another server remains online.
+- Player counts use later connection snapshots and show unknown after a lost connection instead of treating retained reconnect sockets as connected players.
+- Optional case-sensitive world seed when creating a fresh server; blank keeps random generation.
+- Existing and imported world seeds are shown read-only. Changing server settings never rewrites the world's seed.
+
 ## 1.0.0 — 2026-09-14
 
 First stable release of Valhiem Server Manager for Mac.

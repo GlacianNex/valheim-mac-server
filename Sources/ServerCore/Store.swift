@@ -43,6 +43,8 @@ public final class Store {
         return try update { db in
             let old = db.profiles.first { $0.id == profile.id }
             if old != nil && Lifecycle(paths: servicePaths(profile.id, database: db)).isActive { throw MonitorError("Stop this server before editing its profile.") }
+            if let old, (old.seed ?? "") != (profile.seed ?? "") { throw MonitorError("A world seed cannot be changed. Create a new server to use a different seed.") }
+            if importSource != nil, !(profile.seed ?? "").isEmpty { throw MonitorError("Imported worlds keep their original seed. Clear World seed before importing.") }
             if let old, old.world != profile.world { throw MonitorError("Existing world filenames cannot be changed. Create another profile instead.") }
             guard !db.profiles.contains(where: { $0.id != profile.id && $0.label.caseInsensitiveCompare(profile.label) == .orderedSame }) else { throw MonitorError("A profile already has this name.") }
             let directory = saveDirectory(profile)
@@ -51,6 +53,9 @@ public final class Store {
                 do {
                     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
                     if let importSource { try WorldImport.copy(source: importSource, world: profile.world, destination: directory.appendingPathComponent("worlds_local"), scratch: paths.root) }
+                    else if let seed = profile.seed, !seed.isEmpty {
+                        try WorldSeed.create(world: profile.world, seed: seed, saveDirectory: directory)
+                    }
                 } catch { try? FileManager.default.removeItem(at: directory); throw error }
             }
             if let index = db.profiles.firstIndex(where: { $0.id == profile.id }) { db.profiles[index] = profile }

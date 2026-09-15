@@ -16,8 +16,9 @@ public final class Engine {
             var status = try lifecycle.status()
             status.servers = try Fleet(paths: paths).statuses()
             status.running = status.servers.contains { $0.running }
-            status.players = String(status.servers.filter { $0.running }.compactMap { Int($0.players) }.reduce(0, +))
-            status.state = status.servers.contains { $0.state == "Online" } ? "Online" : (status.running ? "Starting" : "Stopped")
+            let running = status.servers.filter { $0.running }
+            status.players = running.contains { Int($0.players) == nil } ? "" : String(running.compactMap { Int($0.players) }.reduce(0, +))
+            status.state = Fleet.state(for: status.servers)
             return String(decoding: try encode(status), as: UTF8.self)
         case "default-profile":
             var profile = Profile()
@@ -29,6 +30,7 @@ public final class Engine {
             var form = profile.form
             do {
                 let saved = try SavedWorldSettings.read(profile: profile, paths: paths)
+                form["_savedSeed"] = saved.seed
                 form["_savedModifiers"] = saved.modifiers; form["_savedFlags"] = saved.flags
                 form["_savedSettingsNote"] = "Inherited values below come from the latest completed world save. They are displayed without adding launch overrides. Changes made in-game may appear after the next save."
             } catch { form["_savedSettingsNote"] = "Saved world values could not be read. Unset fields preserve the world settings; they do not mean Normal or Disabled." }

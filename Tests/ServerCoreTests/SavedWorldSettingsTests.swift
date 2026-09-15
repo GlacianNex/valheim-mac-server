@@ -59,6 +59,7 @@ final class SavedWorldSettingsTests: XCTestCase {
             let before = try Data(contentsOf: paths.file("profiles.json"))
             let result = try Engine(paths: paths).execute("get-profile", arguments: [profile.id])
             let form = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(result.utf8)) as? [String:Any])
+            XCTAssertEqual(form["_savedSeed"] as? String, "TestSeed")
             XCTAssertEqual((form["_savedModifiers"] as? [String:String])?["Resources"], "muchmore")
             XCTAssertEqual(form["Resources"] as? String, "")
             try store.save(Profile(form: form))

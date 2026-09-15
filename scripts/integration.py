@@ -11,6 +11,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--binary', required=True, type=Path)
 parser.add_argument('--root', required=True, type=Path)
 parser.add_argument('--runtime', required=True, type=Path, help='Existing app-managed runtime folder containing server/ and steamcmd/')
+parser.add_argument('--seed', help='Optional chosen seed to verify across creation and restart')
 parser.add_argument('--port', type=int, default=25456)
 args = parser.parse_args()
 root = args.root.resolve()
@@ -26,6 +27,8 @@ def control(action, value=None):
 profile = json.loads(control('default-profile'))
 profile.update(label='Integration fixture', name='Integration fixture', world='IntegrationFixture',
                password='integration-only-password', port=args.port, public=False, crossplay=True)
+if args.seed is not None:
+    profile['seed'] = args.seed
 control('save-profile', profile)
 database = json.loads((root / 'profiles.json').read_text())
 database['autostart'] = True
@@ -56,6 +59,9 @@ for cycle in range(2):
     assert 'World save (5/5) done' in log, 'No completed world-save marker'
     logs.append(log)
     assert not json.loads(control('status'))['running']
+    if args.seed is not None:
+        saved = json.loads(control('get-profile'))
+        assert saved['_savedSeed'] == args.seed, 'Server did not preserve the requested seed'
     print(f'Cycle {cycle + 1}: clean shutdown and all save stages completed', flush=True)
 assert 'ZDOMan.LoadChunks => Loading ZDOs done' in logs[1], 'Saved world was not loaded'
 assert 'Save number 2' in logs[1], 'Expected the second save of the same world'

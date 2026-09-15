@@ -19,7 +19,8 @@ Settings automatically display inherited world modifiers from completed `.fwl2` 
 
 Running servers offer **View Settings…** with editing disabled. Stopped servers offer **Edit Server…**. Some world keys persist in saves: unchecking a launch flag does not remove a previously saved world key. The underlined setting labels explain these effects.
 
-To choose a particular world seed, create the world in Valheim and import it.
+**World seed (optional)** accepts 1–10 letters or digits. It is case-sensitive; blank lets Valheim choose a random seed. The seed is locked when the server record is created. Imported worlds keep their original seed, which is shown read-only in settings when the save can be read. To use another seed, create a new server. Terrain may differ across Valheim world-generation updates.
+
 
 ## Networking and login startup
 

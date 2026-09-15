@@ -4,7 +4,7 @@ Host a Valheim dedicated server on your Mac. This native macOS menu bar app inst
 
 **Requires macOS 13 Ventura or later.** The download includes Apple Silicon and Intel Mac binaries. Runtime testing is currently on Apple Silicon; Intel hardware validation is still pending. Allow 6 GB of free disk space for installation and updates. The hosting app is for macOS only.
 
-**Version 1.0.0 is Developer ID signed and notarized by Apple**, with the notarization ticket attached.
+**Version 1.1.2 is Developer ID signed and notarized by Apple**, with the notarization ticket attached.
 
 [Download for Mac](https://github.com/GlacianNex/valhiem-mac-server/releases/latest) · [Mac setup and recovery](docs/SETUP.md) · [Development](CONTRIBUTING.md)
 
@@ -17,6 +17,8 @@ Host a Valheim dedicated server on your Mac. This native macOS menu bar app inst
 Crossplay is enabled by default, using Valheim's relay networking. The app displays the join code when the server reports one. Steam-only hosting requires forwarding the chosen UDP port and the next port on your router. The manager cannot change your router configuration.
 
 macOS may show its normal first-open confirmation for an app downloaded from the internet.
+
+Choose an optional **World seed** when creating a new server, or leave it blank for random generation. Existing and imported worlds show their saved seed read-only in settings.
 
 ## Included
 

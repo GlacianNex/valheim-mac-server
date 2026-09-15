@@ -2,6 +2,7 @@ import Foundation
 
 /// Read-only metadata snapshot. Displayed values never become launch overrides.
 public struct SavedWorldSettings {
+    public let seed: String
     public let modifiers: [String: String]
     public let flags: [String: Bool]
 
@@ -27,8 +28,8 @@ public struct SavedWorldSettings {
         guard try reader.uint32() == data.count - 4 else { throw MonitorError("World metadata is incomplete.") }
         let version = try reader.uint32()
         guard (26...41).contains(version) else { throw MonitorError("This world metadata version is not supported yet.") }
-        _ = try reader.string() // World name; seed and identifiers are not returned.
-        _ = try reader.string()
+        _ = try reader.string() // World name.
+        let seed = try reader.string()
         try reader.skip(4 + 8 + 4)
         if version >= 30 { guard try reader.byte() <= 1 else { throw MonitorError("Invalid world metadata.") } }
         let count = reader.offset == data.count && version < 30 ? 0 : try reader.uint32()
@@ -50,7 +51,7 @@ public struct SavedWorldSettings {
            let percent = Double(resource), percent.isFinite, percent >= 0 {
             modifiers["Resources"] = [50.0:"muchless",75:"less",100:"default",150:"more",200:"muchmore",300:"most"][percent] ?? "custom \(percent / 100)×"
         }
-        return SavedWorldSettings(modifiers: modifiers, flags: Dictionary(uniqueKeysWithValues: Profile.flagNames.map { ($0, keys.contains($0)) }))
+        return SavedWorldSettings(seed: seed, modifiers: modifiers, flags: Dictionary(uniqueKeysWithValues: Profile.flagNames.map { ($0, keys.contains($0)) }))
     }
     private struct Reader {
         let bytes: [UInt8]

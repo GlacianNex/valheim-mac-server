@@ -3,6 +3,8 @@ import Foundation
 public struct Profile: Codable, Equatable {
     public var id = UUID().uuidString.lowercased()
     public var label = "", name = "", world = "", password = ""
+    /// Creation-only request; absent in profiles written before seed support.
+    public var seed: String?
     public var port = 2456, saveinterval = 1800, backups = 4, backupshort = 7200, backuplong = 43200
     public var isPublic = true, crossplay = true
     public var instanceid = "", preset = "", extra = ""
@@ -16,6 +18,7 @@ public struct Profile: Codable, Equatable {
         self.init()
         func text(_ key: String) -> String { form[key].map { String(describing: $0) } ?? "" }
         if let value = form["id"] as? String, !value.isEmpty { id = value }
+        seed = text("seed").isEmpty ? nil : text("seed")
         label = text("label"); name = text("name"); world = text("world"); password = text("password")
         if text("id").isEmpty, text("import").isEmpty, world.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             world = Self.defaultWorldName(for: label)
@@ -40,11 +43,13 @@ public struct Profile: Codable, Equatable {
     }
     public var form: [String: Any] {
         var value: [String: Any] = ["id": id, "label": label, "name": name, "world": world, "password": password, "port": port, "saveinterval": saveinterval, "backups": backups, "backupshort": backupshort, "backuplong": backuplong, "public": isPublic, "crossplay": crossplay, "instanceid": instanceid, "preset": preset, "extra": extra, "admins": admins, "banned": banned, "permitted": permitted]
+        value["seed"] = seed ?? ""
         for key in Self.modifierChoices.keys { value[key] = modifiers[key] ?? "" }
         for key in Self.flagNames { value[key] = flags[key] ?? false }
         return value
     }
     public func validate() throws {
+        try WorldSeed.validate(seed ?? "")
         guard UUID(uuidString: id) != nil else { throw MonitorError("Invalid profile identifier.") }
         for (key, value) in [("Profile name", label), ("Server name", name), ("World filename", world)] {
             guard !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,

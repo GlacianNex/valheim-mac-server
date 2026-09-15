@@ -96,6 +96,13 @@ class ProfileEditor: NSObject, NSWindowDelegate, NSTextFieldDelegate {
                 let t:NSTextField=secret ? NSSecureTextField():NSTextField()
                 t.stringValue=profile[key].map{String(describing:$0)} ?? "";control=t
                 if key == "password" { t.delegate = self }
+                if key == "seed" {
+                    if !(profile["id"] as? String ?? "").isEmpty {
+                        t.isEditable = false; t.isSelectable = true
+                        t.stringValue = profile["_savedSeed"] as? String ?? profile["seed"] as? String ?? ""
+                        t.placeholderString = "Random on first start / saved seed unavailable"
+                    } else { t.placeholderString = "Leave blank for random" }
+                }
                 if key=="world" {
                     if !(profile["id"] as? String ?? "").isEmpty {t.isEditable=false}
                     else {t.placeholderString="Automatic from profile name"}
@@ -111,11 +118,11 @@ class ProfileEditor: NSObject, NSWindowDelegate, NSTextFieldDelegate {
         func note(_ text:String) {let n=NSTextField(wrappingLabelWithString:text);n.textColor = .secondaryLabelColor;n.font = .systemFont(ofSize:11);n.widthAnchor.constraint(equalToConstant:590).isActive=true;stack.addArrangedSubview(n)}
         note("Hover over underlined labels for help with each setting and its options.")
         section("Identity & World")
-        row("label","Server name");row("name","Public server name");row("world","World filename")
+        row("label","Server name");row("name","Public server name");row("world","World filename");row("seed","World seed (optional)")
         if (profile["id"] as? String ?? "").isEmpty {
             let b=NSButton(title:"Import World…",target:self,action:#selector(chooseImport));b.toolTip="Copy a saved world into this new profile. Accepts one-world ZIPs, world folders, or a .db with its matching .fwl. The source is never moved or modified.";stack.addArrangedSubview(b)
             importLabel.lineBreakMode = .byTruncatingMiddle;importLabel.widthAnchor.constraint(equalToConstant:590).isActive=true;stack.addArrangedSubview(importLabel)
-            note("For a fresh world, leave World filename blank to generate it from your profile name. To import, choose one world ZIP, a world folder, or a .db with its .fwl; the filename must match the saved world. Originals are copied and preserved. For a custom seed, create the world in Valheim and import it.")
+            note("For a fresh world, leave World filename blank to generate it from your profile name. To import, choose one world ZIP, a world folder, or a .db with its .fwl; the filename must match the saved world. Originals are copied and preserved. For a fresh world, enter a seed or leave it blank for random. Imported worlds keep their own seed.")
         }
         section("Connection")
         row("public","Server listing",nil,true)
@@ -199,6 +206,9 @@ class ProfileEditor: NSObject, NSWindowDelegate, NSTextFieldDelegate {
         let panel=NSOpenPanel();panel.canChooseDirectories=true;panel.canChooseFiles=true;panel.allowsMultipleSelection=false
         if panel.runModal() == .OK, let url=panel.url {
             selectedImport=url.path;importLabel.stringValue=url.lastPathComponent
+            if let seed = fields["seed"] as? NSTextField {
+                seed.stringValue = ""; seed.isEnabled = false; seed.placeholderString = "Uses imported world's seed"
+            }
             if let f=fields["world"] as? NSTextField, f.stringValue.isEmpty {f.stringValue=url.deletingPathExtension().lastPathComponent}
         }
     }
@@ -216,6 +226,7 @@ class ProfileEditor: NSObject, NSWindowDelegate, NSTextFieldDelegate {
             if let button = fields[key] as? NSButton, (button.state == .on) == saved { p[key] = original[key] }
         }
         for key in ["admins","banned","permitted"] {p[key]=(p[key] as? String ?? "").replacingOccurrences(of:",",with:"\n")}
+        if !(original["id"] as? String ?? "").isEmpty { p["seed"] = original["seed"] ?? "" }
         p["import"]=selectedImport;onSave(p)
     }
     @objc func close(){window.close()}
