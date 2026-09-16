@@ -80,15 +80,10 @@ public final class Lifecycle {
                   let range = Range(match.range(at: 1), in: log) else { return "" }
             return String(log[range])
         }
-        // PlayFab's connection-lost count includes a socket retained for reconnect.
-        // Do not present it as a connected player. A later count/snapshot resolves it.
-        let events = try? NSRegularExpression(pattern: "Player connection lost server [^\\r\\n]*|(?:is active with|now) ([0-9]+) player|\\bConnections ([0-9]+) ZDOS:")
+        // Preserve the latest reported count, including disconnect announcements.
+        let events = try? NSRegularExpression(pattern: "(?:is active with|now) ([0-9]+) player|\\bConnections ([0-9]+) ZDOS:")
         var players: String?
         if let event = events?.matches(in: log, range: NSRange(log.startIndex..., in: log)).last {
-            players = "" // Nonzero lost-connection counts may include a retained socket.
-            if let range = Range(event.range, in: log), log[range].contains("now 0 player") {
-                players = "0" // An explicitly empty session has no ambiguous retained players.
-            }
             for group in 1...2 {
                 if let range = Range(event.range(at: group), in: log) { players = String(log[range]); break }
             }

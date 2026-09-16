@@ -22,21 +22,26 @@ final class ServerLogReaderTests: XCTestCase {
         let handle = try FileHandle(forWritingTo: url); defer { try? handle.close() }
         try handle.seekToEnd()
         try handle.write(contentsOf: Data("Player connection lost server Fixture, now 1 player(s)\nConnections ".utf8))
-        XCTAssertEqual(reader.read(url).players, "")
+        XCTAssertEqual(reader.read(url).players, "1")
         try handle.write(contentsOf: Data("0 ZDOS:42\n".utf8))
         XCTAssertEqual(reader.read(url).players, "0")
         try handle.write(contentsOf: Data("Session with join code 654321 is active with 2 player(s)\n".utf8))
         XCTAssertEqual(reader.read(url).code, "654321"); XCTAssertEqual(reader.read(url).players, "2")
     }
-    func testExplicitZeroOnDisconnectRemainsKnownAfterRefreshAndRelaunch() throws {
+    func testDisconnectCountsRemainKnownAfterRefreshAndRelaunch() throws {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: url) }
-        try Data("Session with join code 123456 is active with 1 player(s)\nPlayer connection lost server Fixture, now 0 player(s)\n".utf8).write(to: url)
+        try Data("Session with join code 123456 is active with 1 player(s)\n".utf8).write(to: url)
         let reader = ServerLogReader()
-        XCTAssertEqual(reader.read(url).players, "0")
-        XCTAssertEqual(reader.read(url).players, "0")
-        XCTAssertEqual(ServerLogReader().read(url).players, "0")
-        XCTAssertEqual(Lifecycle.parseLog("Player connection lost server Fixture, now 10 player(s)\n").players, "")
+        let handle = try FileHandle(forWritingTo: url); defer { try? handle.close() }
+        try handle.seekToEnd()
+        for count in [0, 1, 10, 2, 0] {
+            try handle.write(contentsOf: Data("Player connection lost server Fixture, now \(count) player(s)\n".utf8))
+            XCTAssertEqual(reader.read(url).players, String(count))
+            try handle.write(contentsOf: Data("World save completed\n".utf8))
+            XCTAssertEqual(reader.read(url).players, String(count))
+            XCTAssertEqual(ServerLogReader().read(url).players, String(count))
+        }
     }
     func testTruncationReplacementAndMissingLogClearState() throws {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

@@ -180,7 +180,7 @@ final class CoreTests: XCTestCase {
     func testLogParserUsesMostRecentCount() {
         let status = Lifecycle.parseLog("Session \"Fixture\" with join code 123456 is active with 0 player(s)\nnow 2 player(s)\nnow 1 player(s)")
         XCTAssertTrue(status.online); XCTAssertEqual(status.players, "1"); XCTAssertEqual(status.code, "123456")
-        XCTAssertEqual(Lifecycle.parseLog("now 1 player(s)\nPlayer connection lost server \"Fixture\", now 1 player(s)").players, "")
+        XCTAssertEqual(Lifecycle.parseLog("now 1 player(s)\nPlayer connection lost server \"Fixture\", now 1 player(s)").players, "1")
         XCTAssertEqual(Lifecycle.parseLog("now 1 player(s)\nPlayer connection lost server \"Fixture\", now 1 player(s)\n Connections 0 ZDOS:42 sent:0 recv:0").players, "0")
         XCTAssertEqual(Lifecycle.parseLog(" Connections 0 ZDOS:42 sent:0 recv:0\nPlayer joined server \"Fixture\", now 2 player(s)").players, "2")
         XCTAssertEqual(Lifecycle.parseLog("Player connection lost server \"Fixture\", now 2 player(s)\n Connections 1 ZDOS:42 sent:0 recv:0").players, "1")

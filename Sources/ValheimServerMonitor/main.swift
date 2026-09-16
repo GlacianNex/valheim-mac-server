@@ -106,7 +106,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.imagePosition = .imageLeading
         item.button?.font = NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .medium)
         item.button?.title = " Valhiem · " + (stopping ? "Stopping…" : (starting ? "Starting…" : (displayed.players.isEmpty ? "—" : displayed.players)))
-        item.button?.toolTip = "Valhiem Server Manager for Mac — \(displayed.profileName) — \(state), \(displayed.players.isEmpty ? "unknown" : displayed.players) players. Refreshes every second from server logs; unknown after a lost connection until a new count is reported."
+        item.button?.toolTip = "Valhiem Server Manager for Mac — \(displayed.profileName) — \(state), \(displayed.players.isEmpty ? "unknown" : displayed.players) players. Refreshes every second; shows the latest player count reported in server logs."
         let menu = NSMenu(); menu.autoenablesItems = false
         let appVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Development"
         add(menu, "Valhiem Server Manager for Mac · \(appVersion)")

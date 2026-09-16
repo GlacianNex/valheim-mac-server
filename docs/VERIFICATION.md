@@ -25,7 +25,7 @@ See [seed support](SEEDS.md) for 50 passing tests, seeded native lifecycle check
 
 ### Player-count correction
 
-The menu polls once per second. The parser now processes player-count announcements and `Connections N ZDOS:` snapshots in log order. A `Player connection lost` announcement invalidates the count because PlayFab retains the disconnected socket while reconnecting. The aggregate count stays unknown if any running server has an unknown count. Later valid announcements/snapshots restore it. Regression checks cover loss, zero snapshots, remaining players, rejoining, and unknown aggregates. Read-only replay against the two running servers' logs returned zero for both, matching the user's observation. No server restart was needed for this verification.
+The menu polls once per second. The parser now processes player-count announcements and `Connections N ZDOS:` snapshots in log order. The original 1.1.2 parser invalidated counts after a lost connection; 1.1.4 supersedes this behavior by retaining every reported count. The aggregate count stays unknown if any running server has an unknown count. Later valid announcements/snapshots restore it. Regression checks cover loss, zero snapshots, remaining players, rejoining, and unknown aggregates. Read-only replay against the two running servers' logs returned zero for both, matching the user's observation. No server restart was needed for this verification.
 
 ### Stopping status
 
@@ -37,6 +37,6 @@ On macOS 27.0 build 26A428, the old combined lipo command failed for the native 
 
 A production log exceeding 250 KB reproduced the readiness-marker loss: the server continued saving while the old monitor reported Starting. The corrected monitor recovered Online from the same log without restarting the server. Incremental reading is process-local and changes no profile, service-record, or world format. Tests cover long logs, reconstruction after a manager restart, partial log writes, lost connections, updated join codes, truncation, replacement and missing logs.
 
-Before the explicit-zero follow-up, all 55 automated tests and the universal build passed on macOS 15 CI. On macOS 27, an isolated native world passed two start/save/stop cycles after installation, including reload of its saved world. The release includes the additional explicit-zero disconnect correction; both architecture slices retain macOS 13 as their minimum. No profile or world format migration is required.
+Before the final player-count follow-up, all 55 automated tests and the universal build passed on macOS 15 CI. On macOS 27, an isolated native world passed two start/save/stop cycles after installation, including reload of its saved world. The release includes the latest-reported-count correction; both architecture slices retain macOS 13 as their minimum. No profile or world format migration is required.
 
-A follow-up regression covers an explicit `now 0 player(s)` disconnect report across incremental refresh and manager relaunch. Unlike a nonzero retained-socket count, zero remains a known count.
+A follow-up regression covers disconnect counts of 0, 1, 10, 2, and 0 across incremental refresh, unrelated log messages, and manager relaunch. Every valid count is retained until a newer count replaces it.

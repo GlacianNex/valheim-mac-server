@@ -2,14 +2,14 @@
 
 ## 1.1.4 — 2026-09-16
 
-- Keep explicitly reported zero players after a disconnect; only ambiguous nonzero disconnect counts become unknown.
+- Keep the latest player count reported in logs, including every valid disconnect count, across refreshes and manager relaunches.
 - Verify each required runtime architecture separately to support macOS 27 lipo while retaining Intel and Apple Silicon validation.
 - Preserve server readiness and join codes as logs grow, and reconstruct status when the manager reopens.
 
 ## 1.1.2 — 2026-09-14
 
 - The top bar shows Stopping… during shutdown, including when another server remains online.
-- Player counts use later connection snapshots and show unknown after a lost connection instead of treating retained reconnect sockets as connected players.
+- Player counts follow log announcements and connection snapshots in order.
 - Optional case-sensitive world seed when creating a fresh server; blank keeps random generation.
 - Existing and imported world seeds are shown read-only. Changing server settings never rewrites the world's seed.
 
