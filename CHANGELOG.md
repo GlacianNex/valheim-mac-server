@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.3 — 2026-09-16
 
 - Verify each required runtime architecture separately to support macOS 27 lipo while retaining Intel and Apple Silicon validation.
 - Preserve server readiness and join codes as logs grow, and reconstruct status when the manager reopens.
