@@ -8,6 +8,8 @@ Host a Valheim dedicated server on your Mac. This native macOS menu bar app inst
 
 [Download for Mac](https://github.com/GlacianNex/valhiem-mac-server/releases/latest) · [Mac setup and recovery](docs/SETUP.md) · [Development](CONTRIBUTING.md)
 
+<img src="docs/images/server-manager-menu.png" alt="Valhiem Server Manager for Mac menu showing two servers, player counts, server updates, and startup controls" width="680">
+
 ## Getting started on your Mac
 
 1. Download and unzip **Valhiem-Server-Manager-for-Mac.zip**. Open the app and let it copy itself into Applications (or drag it there in Finder).
