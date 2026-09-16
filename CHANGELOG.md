@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Verify each required runtime architecture separately to support macOS 27 lipo while retaining Intel and Apple Silicon validation.
+- Preserve server readiness and join codes as logs grow, and reconstruct status when the manager reopens.
+
 ## 1.1.2 — 2026-09-14
 
 - The top bar shows Stopping… during shutdown, including when another server remains online.

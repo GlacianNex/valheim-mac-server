@@ -60,8 +60,7 @@ public final class Lifecycle {
             value.state = FileManager.default.fileExists(atPath: paths.file("installing").path) ? "Installing" : "Starting"
             if requested("stop-request") { value.state = "Stopping" }
             if let record, owns(record) {
-                let log = tail(URL(fileURLWithPath: record.log))
-                let parsed = Self.parseLog(log)
+                let parsed = ServerLogReader.shared.read(URL(fileURLWithPath: record.log))
                 value.players = parsed.players; value.code = parsed.code
                 let crossplay = db.profiles.first { $0.id == record.profile }?.crossplay ?? true
                 let ready = crossplay ? !parsed.code.isEmpty : parsed.online
@@ -72,6 +71,10 @@ public final class Lifecycle {
         return value
     }
     public static func parseLog(_ log: String) -> (online: Bool, players: String, code: String) {
+        let event = logEvents(log)
+        return (event.online, event.players ?? "", event.code)
+    }
+    static func logEvents(_ log: String) -> (online: Bool, players: String?, code: String) {
         func last(_ expression: String) -> String {
             guard let regex = try? NSRegularExpression(pattern: expression), let match = regex.matches(in: log, range: NSRange(log.startIndex..., in: log)).last,
                   let range = Range(match.range(at: 1), in: log) else { return "" }
@@ -80,8 +83,9 @@ public final class Lifecycle {
         // PlayFab's connection-lost count includes a socket retained for reconnect.
         // Do not present it as a connected player. A later count/snapshot resolves it.
         let events = try? NSRegularExpression(pattern: "Player connection lost server [^\\r\\n]*|(?:is active with|now) ([0-9]+) player|\\bConnections ([0-9]+) ZDOS:")
-        var players = ""
+        var players: String?
         if let event = events?.matches(in: log, range: NSRange(log.startIndex..., in: log)).last {
+            players = "" // A connection-lost event explicitly invalidates the count.
             for group in 1...2 {
                 if let range = Range(event.range(at: group), in: log) { players = String(log[range]); break }
             }

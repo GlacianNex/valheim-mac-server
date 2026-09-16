@@ -18,6 +18,13 @@ public final class Installer {
         process.standardInput = FileHandle.nullDevice; process.standardOutput = log; process.standardError = log
         try process.run(); process.waitUntilExit(); return process.terminationStatus
     }
+    /// macOS 27 lipo rejects multiple architectures in one -verify_arch invocation.
+    /// Keep both checks mandatory before replacing the installed runtime.
+    static func verifyArchitectures(_ file: URL) throws {
+        for architecture in ["arm64", "x86_64"] {
+            try checkCommand("/usr/bin/lipo", [file.path, "-verify_arch", architecture])
+        }
+    }
     public func install() throws {
         try paths.prepare()
         let runtimeLease = try RuntimeLease(paths: paths, exclusive: true)
@@ -59,13 +66,13 @@ public final class Installer {
         for library in ["steamclient.dylib", "libtier0_s.dylib", "libvstdlib_s.dylib", "libaudio.dylib"] {
             let file = steam.appendingPathComponent(library)
             guard fm.fileExists(atPath: file.path) else { throw MonitorError("Valve's downloader is missing \(library). Retry installation.") }
-            try checkCommand("/usr/bin/lipo", [file.path, "-verify_arch", "arm64", "x86_64"])
+            try Self.verifyArchitectures(file)
         }
         guard result == 0, fm.isExecutableFile(atPath: binary.path), tail(logURL).contains("Success! App '896660' fully installed") else {
             throw MonitorError("Native server installation did not complete. Your previous installation is unchanged. Check installation.log and retry.")
         }
         try checkCommand("/usr/bin/codesign", ["--verify", "--deep", "--strict", binary.path])
-        try checkCommand("/usr/bin/lipo", [binary.path, "-verify_arch", "arm64", "x86_64"])
+        try Self.verifyArchitectures(binary)
         try log.write(contentsOf: Data("\n[Monitor] Finishing installation…\n".utf8))
         let backup = runtime.appendingPathComponent("server-previous")
         if fm.fileExists(atPath: backup.path) { try fm.removeItem(at: backup) }
