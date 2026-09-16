@@ -85,7 +85,10 @@ public final class Lifecycle {
         let events = try? NSRegularExpression(pattern: "Player connection lost server [^\\r\\n]*|(?:is active with|now) ([0-9]+) player|\\bConnections ([0-9]+) ZDOS:")
         var players: String?
         if let event = events?.matches(in: log, range: NSRange(log.startIndex..., in: log)).last {
-            players = "" // A connection-lost event explicitly invalidates the count.
+            players = "" // Nonzero lost-connection counts may include a retained socket.
+            if let range = Range(event.range, in: log), log[range].contains("now 0 player") {
+                players = "0" // An explicitly empty session has no ambiguous retained players.
+            }
             for group in 1...2 {
                 if let range = Range(event.range(at: group), in: log) { players = String(log[range]); break }
             }

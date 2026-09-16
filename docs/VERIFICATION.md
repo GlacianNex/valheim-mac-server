@@ -31,10 +31,12 @@ The menu polls once per second. The parser now processes player-count announceme
 
 An isolated service-lock/stop-request regression reproduced the incorrect aggregate Starting state before the fix, then passed with Stopping afterward. Aggregate-state tests cover stopping alongside online or starting servers, normal online state, and all stopped. All 51 tests pass. The menu title and tooltip now prioritize Stopping… during shutdown. Production servers were not stopped for these checks.
 
-## Release 1.1.3
+## Release 1.1.4
 
 On macOS 27.0 build 26A428, the old combined lipo command failed for the native executable and four Steam libraries. Separate arm64 and x86_64 checks passed for all five. Tests also reject binaries missing either architecture. An isolated full SteamCMD validation/installation completed with the corrected installer, preserving the previous runtime in its backup directory. No production installation was replaced.
 
 A production log exceeding 250 KB reproduced the readiness-marker loss: the server continued saving while the old monitor reported Starting. The corrected monitor recovered Online from the same log without restarting the server. Incremental reading is process-local and changes no profile, service-record, or world format. Tests cover long logs, reconstruction after a manager restart, partial log writes, lost connections, updated join codes, truncation, replacement and missing logs.
 
-All 55 automated tests and the universal build passed on macOS 15 CI. On macOS 27, an isolated native world passed two start/save/stop cycles after installation, including reload of its saved world. The release reuses the Developer ID signed, Apple-notarized local 1.1.3 ZIP; both architecture slices retain macOS 13 as their minimum. No profile or world format migration is required.
+Before the explicit-zero follow-up, all 55 automated tests and the universal build passed on macOS 15 CI. On macOS 27, an isolated native world passed two start/save/stop cycles after installation, including reload of its saved world. The release includes the additional explicit-zero disconnect correction; both architecture slices retain macOS 13 as their minimum. No profile or world format migration is required.
+
+A follow-up regression covers an explicit `now 0 player(s)` disconnect report across incremental refresh and manager relaunch. Unlike a nonzero retained-socket count, zero remains a known count.

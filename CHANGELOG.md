@@ -1,7 +1,8 @@
 # Changelog
 
-## 1.1.3 — 2026-09-16
+## 1.1.4 — 2026-09-16
 
+- Keep explicitly reported zero players after a disconnect; only ambiguous nonzero disconnect counts become unknown.
 - Verify each required runtime architecture separately to support macOS 27 lipo while retaining Intel and Apple Silicon validation.
 - Preserve server readiness and join codes as logs grow, and reconstruct status when the manager reopens.
 

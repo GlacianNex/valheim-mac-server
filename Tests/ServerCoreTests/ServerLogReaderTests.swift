@@ -28,6 +28,16 @@ final class ServerLogReaderTests: XCTestCase {
         try handle.write(contentsOf: Data("Session with join code 654321 is active with 2 player(s)\n".utf8))
         XCTAssertEqual(reader.read(url).code, "654321"); XCTAssertEqual(reader.read(url).players, "2")
     }
+    func testExplicitZeroOnDisconnectRemainsKnownAfterRefreshAndRelaunch() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: url) }
+        try Data("Session with join code 123456 is active with 1 player(s)\nPlayer connection lost server Fixture, now 0 player(s)\n".utf8).write(to: url)
+        let reader = ServerLogReader()
+        XCTAssertEqual(reader.read(url).players, "0")
+        XCTAssertEqual(reader.read(url).players, "0")
+        XCTAssertEqual(ServerLogReader().read(url).players, "0")
+        XCTAssertEqual(Lifecycle.parseLog("Player connection lost server Fixture, now 10 player(s)\n").players, "")
+    }
     func testTruncationReplacementAndMissingLogClearState() throws {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: url) }
