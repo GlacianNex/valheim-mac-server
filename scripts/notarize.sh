@@ -1,8 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
-app='dist/Valhiem Server Manager for Mac.app'
-archive='dist/Valhiem-Server-Manager-for-Mac.zip'
+app='dist/Valheim Server Manager for Mac.app'
+archive='dist/Valheim-Server-Manager-for-Mac.zip'
 mkdir -p dist/notarization
 codesign --verify --deep --strict "$app"
 signature="$(codesign -dv --verbose=4 "$app" 2>&1)"
@@ -41,6 +41,6 @@ codesign --verify --deep --strict "$app"
 spctl --assess --type execute --verbose=2 "$app"
 # Stapling changes the bundle, so recreate the download and checksum afterward.
 ditto -c -k --keepParent "$app" "$archive"
-(cd dist && shasum -a 256 Valhiem-Server-Manager-for-Mac.zip > SHA256SUMS.txt)
+(cd dist && shasum -a 256 Valheim-Server-Manager-for-Mac.zip > SHA256SUMS.txt)
 echo 'Apple accepted the submission. Ticket stapled and Gatekeeper assessment passed.'
 echo 'Test the browser-downloaded ZIP on another Mac before publishing.'

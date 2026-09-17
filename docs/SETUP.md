@@ -4,7 +4,7 @@ Requires macOS 13 Ventura or later. The app includes Apple Silicon and Intel bin
 
 ## Install and create a server
 
-1. Download the signed, notarized ZIP from [GitHub Releases](https://github.com/GlacianNex/valhiem-mac-server/releases/latest), unzip, and open the app. Accept its copy to Applications or drag it there in Finder.
+1. Download the signed, notarized ZIP from [GitHub Releases](https://github.com/GlacianNex/valheim-mac-server/releases/latest), unzip, and open the app. Accept its copy to Applications or drag it there in Finder.
 2. Choose **Install Native Server**. The manager downloads Valve’s server anonymously. No Steam account, running Steam client, Python, or CrossOver is needed. Valve’s installer may require Rosetta on Apple Silicon; the app offers Apple’s installer. The game server runs natively.
 3. Choose **New Server…**. Enter the server names and select **List my server** if it should appear publicly. This checkbox enables Password; listed servers require at least five characters. Unlisted servers can have an empty password, allowing anyone with the address or join code to connect. Unchecking listing preserves an existing password; clear it before unchecking to remove password protection.
 4. Leave World filename blank to generate it from the server name, or use **Import World…**. Save, then hover over the server’s status row and choose **Start Server**.
@@ -40,7 +40,7 @@ macOS Login Items / Allow in the Background permissions can prevent automatic st
 
 Download and open a newer app. **Update & Open** validates and replaces the installed manager, then opens it from Applications. If hosting, **Save, Stop & Update** saves and stops all running servers first. After successful replacement, servers that were running and servers with auto-start enabled are started again. Players disconnect during replacement. Profiles, worlds, and login preferences remain separate from the app bundle.
 
-App updates are manually downloaded; the manager does not automatically download its own releases. Fresh installs use `/Applications/Valhiem Server Manager for Mac.app`. Older installations can retain `/Applications/Valheim Server Monitor.app` so existing startup paths keep working.
+App updates are manually downloaded; the manager does not automatically download its own releases. Fresh installs use `/Applications/Valheim Server Manager for Mac.app`. Older installations can retain `/Applications/Valhiem Server Manager for Mac.app` or `/Applications/Valheim Server Monitor.app` so existing startup paths keep working.
 
 ## Update the Valheim runtime
 

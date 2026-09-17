@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Correct Valheim spelling in the app, repository links, and new download filenames. Existing app locations and data remain supported.
+- Show an update indicator in the menu bar and a prominent server update action at the top of the menu.
+
 ## 1.1.4 — 2026-09-16
 
 - Keep the latest player count reported in logs, including every valid disconnect count, across refreshes and manager relaunches.
@@ -15,7 +20,7 @@
 
 ## 1.0.0 — 2026-09-14
 
-First stable release of Valhiem Server Manager for Mac.
+First stable release of Valheim Server Manager for Mac.
 
 - Native macOS hosting with anonymous Valve installation, Apple Silicon and Intel app binaries, and Developer ID signing with Apple notarization.
 - Multiple simultaneous servers with independent status, logs, ports, settings, and login startup.
@@ -26,4 +31,4 @@ First stable release of Valhiem Server Manager for Mac.
 - Shared Valheim Server Build checks and confirmed runtime updates that save, stop, and restore affected servers.
 - Copy-only world imports, automatic world filenames and port defaults, and a backup when migrating older profile databases.
 
-Historical preview downloads and notes remain in [GitHub Releases](https://github.com/GlacianNex/valhiem-mac-server/releases).
+Historical preview downloads and notes remain in [GitHub Releases](https://github.com/GlacianNex/valheim-mac-server/releases).

@@ -17,7 +17,7 @@ jobs:
         run: scripts/build.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: Valhiem-Server-Manager-for-Mac-development
+          name: Valheim-Server-Manager-for-Mac-development
           path: |
-            dist/Valhiem-Server-Manager-for-Mac.zip
+            dist/Valheim-Server-Manager-for-Mac.zip
             dist/SHA256SUMS.txt

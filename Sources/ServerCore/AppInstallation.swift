@@ -4,13 +4,19 @@ import Darwin
 public enum AppInstallation {
     public static let bundleIdentifier = "io.github.glaciannex.valheimservermonitor"
 
+    public static func destination(in applications: URL, exists: (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }) -> URL {
+        let names = ["Valheim Server Manager for Mac.app", "Valhiem Server Manager for Mac.app", "Valheim Server Monitor.app"]
+        let candidates = names.map { applications.appendingPathComponent($0) }
+        return candidates.first(where: exists) ?? candidates[0]
+    }
+
     public static func version(at app: URL) throws -> String {
         let plist = app.appendingPathComponent("Contents/Info.plist")
         guard let info = try PropertyListSerialization.propertyList(from: Data(contentsOf: plist), format: nil) as? [String: Any],
               info["CFBundleIdentifier"] as? String == bundleIdentifier,
               let version = info["CFBundleShortVersionString"] as? String,
               version.range(of: #"^[0-9]+\.[0-9]+\.[0-9]+$"#, options: .regularExpression) != nil else {
-            throw MonitorError("This is not a supported Valhiem Server Manager for Mac app.")
+            throw MonitorError("This is not a supported Valheim Server Manager for Mac app.")
         }
         return version
     }
@@ -53,7 +59,7 @@ public enum AppInstallation {
     public static func copy(from source: URL, to destination: URL) throws {
         let files = FileManager.default
         guard !files.fileExists(atPath: destination.path) else {
-            throw MonitorError("Valhiem Server Manager for Mac is already in Applications. Replace it in Finder to update the app. Server data is stored separately.")
+            throw MonitorError("Valheim Server Manager for Mac is already in Applications. Replace it in Finder to update the app. Server data is stored separately.")
         }
         try files.copyItem(at: source, to: destination)
         do {

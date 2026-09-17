@@ -1,4 +1,4 @@
-# Valhiem Server Manager for Mac
+# Valheim Server Manager for Mac
 
 Host a Valheim dedicated server on your Mac. This native macOS menu bar app installs the server, creates or imports worlds, and manages hosting in the background without keeping a terminal open.
 
@@ -6,13 +6,13 @@ Host a Valheim dedicated server on your Mac. This native macOS menu bar app inst
 
 **Version 1.1.4 is Developer ID signed and notarized by Apple**, with the notarization ticket attached.
 
-[Download for Mac](https://github.com/GlacianNex/valhiem-mac-server/releases/latest) · [Mac setup and recovery](docs/SETUP.md) · [Development](CONTRIBUTING.md)
+[Download for Mac](https://github.com/GlacianNex/valheim-mac-server/releases/latest) · [Mac setup and recovery](docs/SETUP.md) · [Development](CONTRIBUTING.md)
 
-<img src="docs/images/server-manager-menu.png" alt="Valhiem Server Manager for Mac menu showing two servers, player counts, server updates, and startup controls" width="680">
+<img src="docs/images/server-manager-menu.png" alt="Valheim Server Manager for Mac menu showing two servers, player counts, server updates, and startup controls" width="680">
 
 ## Getting started on your Mac
 
-1. Download and unzip **Valhiem-Server-Manager-for-Mac.zip**. Open the app and let it copy itself into Applications (or drag it there in Finder).
+1. Download and unzip **Valheim-Server-Manager-for-Mac.zip**. Open the app and let it copy itself into Applications (or drag it there in Finder).
 2. Choose **Install Native Server**. The app downloads the server directly from Valve; no Steam account, running Steam client, Python, or CrossOver is required. On Apple Silicon, Valve's installer may need a one-time Rosetta installation, which the app asks you to approve. The server runs natively on Apple Silicon.
 3. Choose **New Server…**, set a server name, choose whether to **List my server**, and save. Listed servers require a password; unlisted servers can use an empty password. Hover over that server in the menu bar to start it or view its settings.
 
@@ -25,6 +25,7 @@ Choose an optional **World seed** when creating a new server, or leave it blank 
 ## Included
 
 - Automatic native server download and manual server updates, with installation progress and retry.
+- An available server update adds **↑ Update** to the menu bar and an **Update Valheim Server…** action at the top of the menu. Servers keep running until you approve the update.
 - The menu shows the installed server's Steam build and checks Valve's stable release on launch and every 15 minutes while hosting continues. Click an available update to save, stop, update, and restart the servers that were running.
 - Open a newer downloaded app and choose **Update & Open** to replace the installed manager while preserving profiles and worlds. If hosting, **Save, Stop & Update** saves and stops all running servers first. After a successful app update, each server starts if its auto-start setting is enabled or it was running before the update.
 - Intel and Apple Silicon app binaries; macOS 13 or later.

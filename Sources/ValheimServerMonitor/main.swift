@@ -88,6 +88,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(row)
     }
     func rebuild() {
+        let serverUpdateAvailable = installedBuild.flatMap { installed in
+            latestBuild.map { ServerVersion.updateAvailable(installed: installed, latest: $0) }
+        } ?? false
         let stopping = displayed.state == "Stopping" || displayed.servers.contains { $0.state == "Stopping" }
         let starting = startFeedback.pending || pendingStarts.values.contains { $0.pending } || displayed.state == "Starting"
         let active = displayed.running || starting
@@ -105,12 +108,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.image = light
         item.button?.imagePosition = .imageLeading
         item.button?.font = NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .medium)
-        item.button?.title = " Valhiem · " + (stopping ? "Stopping…" : (starting ? "Starting…" : (displayed.players.isEmpty ? "—" : displayed.players)))
-        item.button?.toolTip = "Valhiem Server Manager for Mac — \(displayed.profileName) — \(state), \(displayed.players.isEmpty ? "unknown" : displayed.players) players. Refreshes every second; shows the latest player count reported in server logs."
+        item.button?.title = " Valheim · " + (stopping ? "Stopping…" : (starting ? "Starting…" : (displayed.players.isEmpty ? "—" : displayed.players)))
+        if serverUpdateAvailable { item.button?.title.append(" · ↑ Update") }
+        item.button?.toolTip = "Valheim Server Manager for Mac — \(displayed.profileName) — \(state), \(displayed.players.isEmpty ? "unknown" : displayed.players) players. Refreshes every second; shows the latest player count reported in server logs."
+        if serverUpdateAvailable { item.button?.toolTip?.append(" A Valheim server update is available. Open the menu to update.") }
         let menu = NSMenu(); menu.autoenablesItems = false
         let appVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Development"
-        add(menu, "Valhiem Server Manager for Mac · \(appVersion)")
+        add(menu, "Valheim Server Manager for Mac · \(appVersion)")
         menu.addItem(.separator())
+        if serverUpdateAvailable {
+            add(menu, "↑ Update Valheim Server…", #selector(serverVersionClicked), enabled: !busy && busyProfiles.isEmpty && !checkingVersion && !starting && !stopping)
+            menu.items.last?.image = NSImage(systemSymbolName: "arrow.down.circle.fill", accessibilityDescription: "Server update available")
+            menu.items.last?.toolTip = "A newer server build is available. Click to review the update before any servers are stopped."
+            menu.addItem(.separator())
+        }
         for server in displayed.servers {
             let pending = pendingStarts[server.selected]?.pending == true
             let serverStarting = pending || server.state == "Starting"
@@ -146,16 +157,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let suffix: String
             if checkingVersion { suffix = "Checking for updates…" }
             else if versionCheckFailed { suffix = "Check unavailable · Retry" }
-            else if let latestBuild, ServerVersion.updateAvailable(installed: installedBuild, latest: latestBuild) { suffix = "Update to \(latestBuild)…" }
+            else if let latestBuild, ServerVersion.updateAvailable(installed: installedBuild, latest: latestBuild) { suffix = "Update available → \(latestBuild)…" }
             else if latestBuild != nil { suffix = "Up to date" }
             else { suffix = "Check for updates" }
             add(menu, "Valheim Server Build \(installedBuild) — \(suffix)", #selector(serverVersionClicked), enabled: !busy && busyProfiles.isEmpty && !checkingVersion && !starting)
         } else { add(menu, "Valheim Server Build: not installed or unavailable") }
         menu.items.last?.toolTip = "The installed Valheim server software is shared by all servers listed above."
         menu.addItem(.separator())
-        let serverUpdateAvailable = installedBuild.flatMap { installed in
-            latestBuild.map { ServerVersion.updateAvailable(installed: installed, latest: $0) }
-        } ?? false
         if !displayed.installed || (!versionCheckFailed && serverUpdateAvailable) {
             add(menu, "Set Up / Update Native Server…", #selector(showSetup), enabled: !busy && !active)
         }
@@ -188,7 +196,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self.rebuild()
                 if result.0 != 0 {
                     NSApp.activate(ignoringOtherApps: true)
-                    let alert = NSAlert(); alert.messageText = "Valhiem Server Manager for Mac needs attention"
+                    let alert = NSAlert(); alert.messageText = "Valheim Server Manager for Mac needs attention"
                     alert.informativeText = result.1; alert.runModal()
                 }
                 self.refresh()
@@ -249,7 +257,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.global(qos: .utility).async {
             let build = try? ServerVersion.check(paths: self.engine.paths)
             DispatchQueue.main.async {
-                self.checkingVersion = false; self.latestBuild = build; self.versionCheckFailed = build == nil
+                self.checkingVersion = false; self.latestBuild = build ?? self.latestBuild; self.versionCheckFailed = build == nil
                 self.installedBuild = ServerVersion.installed(paths: self.engine.paths)
                 self.rebuild()
             }

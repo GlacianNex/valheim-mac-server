@@ -18,7 +18,7 @@ The notarization script validates the signed bundle, submits the archive, requir
 
 Extract the final ZIP into a separate directory and verify its signature, stapled ticket, and Gatekeeper assessment. Run the checks appropriate to the change, record meaningful coverage limits in [verification](VERIFICATION.md), and test installation/update from a downloaded artifact. Do not use a live world for development testing.
 
-Commit the release sources and documentation, wait for CI, then create the GitHub release against that commit with `dist/Valhiem-Server-Manager-for-Mac.zip` and `dist/SHA256SUMS.txt`. Publish a regular release as latest when approved. Never silently replace an existing release’s binary with different contents.
+Commit the release sources and documentation, wait for CI, then create the GitHub release against that commit with `dist/Valheim-Server-Manager-for-Mac.zip` and `dist/SHA256SUMS.txt`. Publish a regular release as latest when approved. Never silently replace an existing release’s binary with different contents.
 
 ## GitHub workflow
 

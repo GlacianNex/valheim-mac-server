@@ -2,6 +2,16 @@ import XCTest
 @testable import ServerCore
 
 final class ServerVersionTests: XCTestCase {
+    func testRenamedAppKeepsExistingInstallationPaths() {
+        let root = URL(fileURLWithPath: "/Applications")
+        let current = root.appendingPathComponent("Valheim Server Manager for Mac.app")
+        let misspelled = root.appendingPathComponent("Valhiem Server Manager for Mac.app")
+        let legacy = root.appendingPathComponent("Valheim Server Monitor.app")
+        XCTAssertEqual(AppInstallation.destination(in: root, exists: { _ in false }), current)
+        XCTAssertEqual(AppInstallation.destination(in: root, exists: { $0 == misspelled }), misspelled)
+        XCTAssertEqual(AppInstallation.destination(in: root, exists: { $0 == legacy }), legacy)
+        XCTAssertEqual(AppInstallation.destination(in: root, exists: { _ in true }), current)
+    }
     func testReadsPublicBuildWithoutMistakingBetaOrDepotForLatest() {
         let output = #""896660" { "depots" { "896663" { "manifests" { "public" { "gid" "555" } } } "branches" { "beta" { "buildid" "99999999" } "public" { "timeupdated" "123" "buildid" "25253791" } "default_old" { "buildid" "25185644" } } } }"#
         XCTAssertEqual(ServerVersion.latestBuild(in: output), "25253791")

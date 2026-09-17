@@ -36,7 +36,7 @@ VERSION=1.0.0 scripts/build.sh
 NOTARY_PROFILE=VSM_NOTARY scripts/notarize.sh
 ```
 
-The output is `dist/Valhiem-Server-Manager-for-Mac.zip` plus `dist/SHA256SUMS.txt`. Submission status, ID, and available Apple logs are in `dist/notarization/`. None of these commands start or modify an installed game server.
+The output is `dist/Valheim-Server-Manager-for-Mac.zip` plus `dist/SHA256SUMS.txt`. Submission status, ID, and available Apple logs are in `dist/notarization/`. None of these commands start or modify an installed game server.
 
 If Apple returns Invalid, inspect its log and fix the reported paths. If processing times out, Apple continues processing: retrieve the saved submission ID and use `notarytool info` or `notarytool wait` with the same Keychain profile. Once accepted, staple, validate, assess, and repackage as described in [RELEASING.md](RELEASING.md). Never label a release notarized based only on upload success.
 

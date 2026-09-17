@@ -6,9 +6,8 @@ enum AppLocation {
         guard !Paths().isDevelopment, Bundle.main.bundleURL.pathExtension == "app" else { completion(true); return }
         let current = Bundle.main.bundleURL.resolvingSymlinksInPath().standardizedFileURL
         // Existing launch agents refer to this path. Keep it stable for upgraded installs.
-        let legacy = URL(fileURLWithPath: "/Applications/Valheim Server Monitor.app")
-        let preferred = URL(fileURLWithPath: "/Applications/Valhiem Server Manager for Mac.app")
-        let destination = (FileManager.default.fileExists(atPath: legacy.path) && !FileManager.default.fileExists(atPath: preferred.path) ? legacy : preferred).resolvingSymlinksInPath().standardizedFileURL
+        let destination = AppInstallation.destination(in: URL(fileURLWithPath: "/Applications"))
+            .resolvingSymlinksInPath().standardizedFileURL
         guard current != destination else { completion(true); return }
         let paths = Paths()
         let updating = FileManager.default.fileExists(atPath: destination.path)
@@ -29,7 +28,7 @@ enum AppLocation {
         let autostart = ((try? Fleet(paths: paths).resumeIDs()) ?? []).isEmpty == false
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
-        alert.messageText = updating ? "Update Valhiem Server Manager for Mac?" : "Keep Valhiem Server Manager for Mac in Applications"
+        alert.messageText = updating ? "Update Valheim Server Manager for Mac?" : "Keep Valheim Server Manager for Mac in Applications"
         alert.informativeText = updating
             ? versionSummary + "Servers, worlds, settings, and login preferences are preserved. The old manager will close."
             : "Background startup needs a stable app location. Copy this app to Applications before setup. Your downloaded copy and all server data are preserved."
@@ -39,7 +38,7 @@ enum AppLocation {
         alert.addButton(withTitle: "Quit")
         guard alert.runModal() == .alertFirstButtonReturn else { completion(false); return }
         let progressWindow = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 440, height: 100), styleMask: [.titled], backing: .buffered, defer: false)
-        progressWindow.title = updating ? "Updating Valhiem Server Manager for Mac" : "Installing Valhiem Server Manager for Mac"
+        progressWindow.title = updating ? "Updating Valheim Server Manager for Mac" : "Installing Valheim Server Manager for Mac"
         progressWindow.isReleasedWhenClosed = false
         let progressText = NSTextField(wrappingLabelWithString: running ? "Saving and stopping the server, then updating… This can take up to two minutes." : "Preparing the app and opening it from Applications…")
         progressText.frame = NSRect(x: 20, y: 28, width: 400, height: 50)
@@ -107,7 +106,7 @@ enum AppLocation {
         for application in applications {
             guard let lifetime = ProcessLifetime(pid: application.processIdentifier) else { continue }
             guard application.bundleURL?.resolvingSymlinksInPath().standardizedFileURL == destination else {
-                throw MonitorError("Quit other copies of Valhiem Server Manager for Mac, then open this download again.")
+                throw MonitorError("Quit other copies of Valheim Server Manager for Mac, then open this download again.")
             }
             var accepted = false
             DispatchQueue.main.sync { accepted = application.terminate() }

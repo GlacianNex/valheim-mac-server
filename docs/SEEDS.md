@@ -19,7 +19,7 @@ The game can change generation rules or save formats in future updates. Re-run n
 To repeat seeded lifecycle validation with a disposable, previously nonexistent root:
 
 ```sh
-python3 scripts/integration.py --binary 'dist/Valhiem Server Manager for Mac.app/Contents/MacOS/ValheimServerMonitor' --root /path/to/new-test-root --runtime /path/to/test-runtime --port 29830 --seed Meadows42
+python3 scripts/integration.py --binary 'dist/Valheim Server Manager for Mac.app/Contents/MacOS/ValheimServerMonitor' --root /path/to/new-test-root --runtime /path/to/test-runtime --port 29830 --seed Meadows42
 ```
 
 Use an isolated test runtime and unused UDP port pair. The script never registers launch agents. The default integration test without `--seed` still exercises random creation.

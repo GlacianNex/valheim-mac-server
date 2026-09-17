@@ -16,7 +16,7 @@ final class SetupWindow: NSObject, NSWindowDelegate {
         self.engine = engine; self.onCreate = onCreate; self.onChange = onChange; self.onClose = onClose
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 580, height: 500), styleMask: [.titled, .closable], backing: .buffered, defer: false)
         super.init()
-        window.title = "Set Up Valhiem Server Manager for Mac"; window.delegate = self; window.isReleasedWhenClosed = false
+        window.title = "Set Up Valheim Server Manager for Mac"; window.delegate = self; window.isReleasedWhenClosed = false
         let stack = NSStackView(); stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 18
         stack.translatesAutoresizingMaskIntoConstraints = false
         window.contentView!.addSubview(stack)
