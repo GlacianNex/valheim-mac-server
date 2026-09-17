@@ -4,7 +4,7 @@ Host a Valheim dedicated server on your Mac. This native macOS menu bar app inst
 
 **Requires macOS 13 Ventura or later.** The download includes Apple Silicon and Intel Mac binaries. Runtime testing is currently on Apple Silicon; Intel hardware validation is still pending. Allow 6 GB of free disk space for installation and updates. The hosting app is for macOS only.
 
-**Version 1.1.4 is Developer ID signed and notarized by Apple**, with the notarization ticket attached.
+**Version 1.1.5 is Developer ID signed and notarized by Apple**, with the notarization ticket attached.
 
 [Download for Mac](https://github.com/GlacianNex/valheim-mac-server/releases/latest) · [Mac setup and recovery](docs/SETUP.md) · [Development](CONTRIBUTING.md)
 

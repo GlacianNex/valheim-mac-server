@@ -1,9 +1,10 @@
 # Changelog
 
-## Unreleased
+## 1.1.5 — 2026-09-17
 
 - Correct Valheim spelling in the app, repository links, and new download filenames. Existing app locations and data remain supported.
-- Show an update indicator in the menu bar and a prominent server update action at the top of the menu.
+- Use a copper V app icon. Keep the status light, player count, and yellow update indicator together in one menu-bar item.
+- Show one server update action with the matching yellow indicator; remove duplicate update entries.
 
 ## 1.1.4 — 2026-09-16
 
