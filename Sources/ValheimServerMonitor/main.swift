@@ -106,11 +106,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         updateBadge.isTemplate = false
         let branding = NSImage(named: NSImage.applicationIconName)
-        let light = NSImage(size: NSSize(width: serverUpdateAvailable ? 54 : 34, height: 18), flipped: false) { rect in
+        let light = NSImage(size: NSSize(width: 34, height: 18), flipped: false) { rect in
             branding?.draw(in: NSRect(x: 0, y: 0, width: 18, height: 18))
             color.setFill()
             NSBezierPath(ovalIn: NSRect(x: 22, y: 4, width: 10, height: 10)).fill()
-            if serverUpdateAvailable { updateBadge.draw(in: NSRect(x: 38, y: 1, width: 16, height: 16)) }
             return true
         }
         light.isTemplate = false
@@ -118,6 +117,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.imagePosition = .imageLeading
         item.button?.font = NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .medium)
         item.button?.title = " Valheim · " + (stopping ? "Stopping…" : (starting ? "Starting…" : (displayed.players.isEmpty ? "—" : displayed.players)))
+        if serverUpdateAvailable, let button = item.button {
+            let title = NSMutableAttributedString(string: button.title + " ", attributes: [.font: button.font ?? NSFont.systemFont(ofSize: 13), .foregroundColor: NSColor.labelColor])
+            let badge = NSTextAttachment()
+            badge.image = updateBadge
+            badge.bounds = NSRect(x: 0, y: -3, width: 16, height: 16)
+            title.append(NSAttributedString(attachment: badge))
+            button.attributedTitle = title
+        }
         item.button?.toolTip = "Valheim Server Manager for Mac — \(displayed.profileName) — \(state), \(displayed.players.isEmpty ? "unknown" : displayed.players) players. Refreshes every second; shows the latest player count reported in server logs."
         if serverUpdateAvailable { item.button?.toolTip?.append(" A Valheim server update is available. Open the menu to update.") }
         let menu = NSMenu(); menu.autoenablesItems = false
