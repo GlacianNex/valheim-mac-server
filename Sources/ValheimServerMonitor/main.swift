@@ -97,17 +97,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let state = stopping ? "Stopping…" : (starting ? "Starting…" : displayed.state)
         let online = displayed.state == "Online" && !starting && !stopping
         let color: NSColor = online ? .systemGreen : (active ? .systemOrange : .systemRed)
+        let updateBadge = NSImage(size: NSSize(width: 16, height: 16), flipped: false) { _ in
+            NSColor.systemYellow.setFill()
+            NSBezierPath(ovalIn: NSRect(x: 0, y: 0, width: 16, height: 16)).fill()
+            NSAttributedString(string: "!", attributes: [.font: NSFont.boldSystemFont(ofSize: 13), .foregroundColor: NSColor.black])
+                .draw(at: NSPoint(x: 5.5, y: 0))
+            return true
+        }
+        updateBadge.isTemplate = false
         let branding = NSImage(named: NSImage.applicationIconName)
         let light = NSImage(size: NSSize(width: serverUpdateAvailable ? 54 : 34, height: 18), flipped: false) { rect in
             branding?.draw(in: NSRect(x: 0, y: 0, width: 18, height: 18))
             color.setFill()
             NSBezierPath(ovalIn: NSRect(x: 22, y: 4, width: 10, height: 10)).fill()
-            if serverUpdateAvailable {
-                NSColor.systemYellow.setFill()
-                NSBezierPath(ovalIn: NSRect(x: 38, y: 1, width: 16, height: 16)).fill()
-                let mark = NSAttributedString(string: "!", attributes: [.font: NSFont.boldSystemFont(ofSize: 13), .foregroundColor: NSColor.black])
-                mark.draw(at: NSPoint(x: 43.5, y: 1))
-            }
+            if serverUpdateAvailable { updateBadge.draw(in: NSRect(x: 38, y: 1, width: 16, height: 16)) }
             return true
         }
         light.isTemplate = false
@@ -123,7 +126,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(.separator())
         if serverUpdateAvailable {
             add(menu, "Update Valheim Server…", #selector(serverVersionClicked), enabled: !busy && busyProfiles.isEmpty && !checkingVersion && !starting && !stopping)
-            menu.items.last?.image = NSImage(systemSymbolName: "arrow.down.circle.fill", accessibilityDescription: "Server update available")
+            menu.items.last?.image = updateBadge
             menu.items.last?.toolTip = "A newer server build is available. Click to review the update before any servers are stopped."
             menu.addItem(.separator())
         }
