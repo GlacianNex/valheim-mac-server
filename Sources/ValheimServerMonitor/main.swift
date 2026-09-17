@@ -98,10 +98,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let online = displayed.state == "Online" && !starting && !stopping
         let color: NSColor = online ? .systemGreen : (active ? .systemOrange : .systemRed)
         let branding = NSImage(named: NSImage.applicationIconName)
-        let light = NSImage(size: NSSize(width: 34, height: 18), flipped: false) { rect in
+        let light = NSImage(size: NSSize(width: serverUpdateAvailable ? 54 : 34, height: 18), flipped: false) { rect in
             branding?.draw(in: NSRect(x: 0, y: 0, width: 18, height: 18))
             color.setFill()
             NSBezierPath(ovalIn: NSRect(x: 22, y: 4, width: 10, height: 10)).fill()
+            if serverUpdateAvailable {
+                NSColor.systemYellow.setFill()
+                NSBezierPath(ovalIn: NSRect(x: 38, y: 1, width: 16, height: 16)).fill()
+                let mark = NSAttributedString(string: "!", attributes: [.font: NSFont.boldSystemFont(ofSize: 13), .foregroundColor: NSColor.black])
+                mark.draw(at: NSPoint(x: 43.5, y: 1))
+            }
             return true
         }
         light.isTemplate = false
@@ -109,7 +115,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.imagePosition = .imageLeading
         item.button?.font = NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .medium)
         item.button?.title = " Valheim · " + (stopping ? "Stopping…" : (starting ? "Starting…" : (displayed.players.isEmpty ? "—" : displayed.players)))
-        if serverUpdateAvailable { item.button?.title.append(" · ↑ Update") }
+        if serverUpdateAvailable { item.button?.title.append(" · Server update available") }
         item.button?.toolTip = "Valheim Server Manager for Mac — \(displayed.profileName) — \(state), \(displayed.players.isEmpty ? "unknown" : displayed.players) players. Refreshes every second; shows the latest player count reported in server logs."
         if serverUpdateAvailable { item.button?.toolTip?.append(" A Valheim server update is available. Open the menu to update.") }
         let menu = NSMenu(); menu.autoenablesItems = false
@@ -117,7 +123,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         add(menu, "Valheim Server Manager for Mac · \(appVersion)")
         menu.addItem(.separator())
         if serverUpdateAvailable {
-            add(menu, "↑ Update Valheim Server…", #selector(serverVersionClicked), enabled: !busy && busyProfiles.isEmpty && !checkingVersion && !starting && !stopping)
+            add(menu, "Server Update Available — Update Now…", #selector(serverVersionClicked), enabled: !busy && busyProfiles.isEmpty && !checkingVersion && !starting && !stopping)
             menu.items.last?.image = NSImage(systemSymbolName: "arrow.down.circle.fill", accessibilityDescription: "Server update available")
             menu.items.last?.toolTip = "A newer server build is available. Click to review the update before any servers are stopped."
             menu.addItem(.separator())
