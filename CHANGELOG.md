@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.6 — 2026-09-17
+
+- Check for manager updates every six hours. The top menu line stays grey when up to date and offers a one-click verified download and installation when an update is available.
+- Keep the Valheim server build line informational and greyed out.
+- Show Normal modifier values for fresh worlds and clarify preset inheritance, per-option help, passwords, and numeric settings.
+
 ## 1.1.5 — 2026-09-17
 
 - Correct Valheim spelling in the app, repository links, and new download filenames. Existing app locations and data remain supported.

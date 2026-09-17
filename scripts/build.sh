@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
-version="${VERSION:-1.1.5}"
+version="${VERSION:-1.1.6}"
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'VERSION must be major.minor.patch' >&2; exit 1; }
 if [[ -n "${SIGNING_IDENTITY:-}" ]]; then scripts/apple-preflight.sh; fi
 export MACOSX_DEPLOYMENT_TARGET=13.0

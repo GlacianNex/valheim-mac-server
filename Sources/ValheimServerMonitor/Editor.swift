@@ -137,13 +137,17 @@ class ProfileEditor: NSObject, NSWindowDelegate, NSTextFieldDelegate {
         row("saveinterval","Save interval (seconds)");row("backups","Backup count");row("backupshort","Short backup (seconds)");row("backuplong","Long backup (seconds)")
         section("World Modifiers")
         if let savedNote = profile["_savedSettingsNote"] as? String { note(savedNote) }
-        note("Blank means preserve saved world settings. Presets overwrite modifiers. Checkboxes apply enabled world keys; unchecking does not undo keys already stored in a world. Configure those in Valheim itself.")
+        note("Normal is shown for a fresh world. Keep saved world value preserves existing settings. Presets overwrite modifiers; individual overrides apply after the preset. Checkboxes apply enabled world keys; unchecking does not undo keys already stored in a world. Configure those in Valheim itself.")
         row("preset","Preset",["","Normal","Casual","Easy","Hard","Hardcore","Immersive","Hammer"])
         row("Combat","Combat",["","veryeasy","easy","hard","veryhard"])
         row("DeathPenalty","Death penalty",["","casual","veryeasy","easy","hard","hardcore"])
         row("Resources","Resources",["","muchless","less","more","muchmore","most"])
+        if let preset = fields["preset"] as? NSPopUpButton {
+            preset.target = self; preset.action = #selector(modifierDefaultsChanged)
+        }
         row("Raids","Raids",["","none","muchless","less","more","muchmore"])
         row("Portals","Portals",["","casual","hard","veryhard"])
+        updateModifierDefaultTitles()
         row("nobuildcost","No build cost",nil,true);row("playerevents","Player-based raids",nil,true);row("passivemobs","Passive enemies",nil,true);row("nomap","No map",nil,true);row("fire","Spreading fire hazards",nil,true)
         section("Access Lists")
         note("Enter platform IDs separated by commas or newlines. A nonempty permitted list excludes everyone else.")
@@ -194,7 +198,7 @@ class ProfileEditor: NSObject, NSWindowDelegate, NSTextFieldDelegate {
     private func updatePasswordVisibility() {
         guard !readOnly, let password = fields["password"] as? NSTextField, let listed = fields["public"] as? NSButton else { return }
         password.isEnabled = listed.state == .on
-        password.placeholderString = listed.state == .on ? "Required — at least 5 characters" : "No password"
+        password.placeholderString = listed.state == .on ? "Required — at least 5 characters" : "No password (when empty)"
         listed.isEnabled = true
     }
     func setSaving(_ saving: Bool) {
@@ -202,10 +206,28 @@ class ProfileEditor: NSObject, NSWindowDelegate, NSTextFieldDelegate {
         saveButton?.title = saving ? "Saving…" : "Save Server"
         window.standardWindowButton(.closeButton)?.isEnabled = !saving
     }
+    @objc private func modifierDefaultsChanged() { updateModifierDefaultTitles() }
+    private func updateModifierDefaultTitles() {
+        guard let preset = fields["preset"] as? NSPopUpButton else { return }
+        let value = preset.selectedItem?.representedObject as? String ?? ""
+        let fresh = (original["id"] as? String ?? "").isEmpty && selectedImport.isEmpty
+        let saved = original["_savedModifiers"] as? [String: String]
+        if let item = preset.item(at: 0), fresh { item.title = "Normal (new world; no preset override)" }
+        else if let item = preset.item(at: 0), saved == nil { item.title = "Keep world settings (no preset)" }
+        for (key, normal) in SettingsHelp.normalTitles {
+            guard let item = (fields[key] as? NSPopUpButton)?.item(at: 0) else { continue }
+            if value == "Normal" || (fresh && value.isEmpty) { item.title = normal }
+            else if !value.isEmpty { item.title = "Use \(value) preset value" }
+            else if let raw = saved?[key] { item.title = "Saved world: " + SettingsHelp.savedTitle(key, raw) }
+            else { item.title = "Keep saved world value" }
+            item.toolTip = item.title + "\n\n" + SettingsHelp.optionHelp(key, "")
+        }
+    }
     @objc func chooseImport() {
         let panel=NSOpenPanel();panel.canChooseDirectories=true;panel.canChooseFiles=true;panel.allowsMultipleSelection=false
         if panel.runModal() == .OK, let url=panel.url {
             selectedImport=url.path;importLabel.stringValue=url.lastPathComponent
+            updateModifierDefaultTitles()
             if let seed = fields["seed"] as? NSTextField {
                 seed.stringValue = ""; seed.isEnabled = false; seed.placeholderString = "Uses imported world's seed"
             }

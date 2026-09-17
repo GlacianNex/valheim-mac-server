@@ -23,6 +23,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var checkingVersion = false
     var versionCheckFailed = false
     var lastVersionCheck: Date?
+    var managerRelease: ManagerRelease?
+    var managerCheckDate: Date?
+    var checkingManager = false
+    var managerCheckFailed = false
+    var installingManager = false
+    var managerProgress: NSWindow?
     var serverUpdate: ServerUpdateWindow?
     var setup: SetupWindow?
     let engine = Engine()
@@ -53,6 +59,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     func refresh() {
         checkServerVersion()
+        checkManagerVersion()
         guard !refreshing else { return }
         refreshing = true
         let generation = statusGeneration
@@ -129,7 +136,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if serverUpdateAvailable { item.button?.toolTip?.append(" A Valheim server update is available. Open the menu to update.") }
         let menu = NSMenu(); menu.autoenablesItems = false
         let appVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Development"
-        add(menu, "Valheim Server Manager for Mac · \(appVersion)")
+        let managerAvailable = managerRelease?.isNewer(than: appVersion) == true
+        let managerState = installingManager ? "Updating…" : managerAvailable ? "Update Available" : checkingManager ? "Checking…" : managerCheckFailed ? "Check unavailable" : managerCheckDate == nil ? "Checking…" : "Up to date"
+        add(menu, "Valheim Manager · \(appVersion) · \(managerState)",
+            managerAvailable ? #selector(managerVersionClicked) : nil,
+            enabled: !busy && busyProfiles.isEmpty && !checkingManager && !installingManager && !starting && !stopping)
+        if managerAvailable { menu.items.last?.image = updateBadge }
+        menu.items.last?.toolTip = managerAvailable
+            ? "Update manager to \(managerRelease!.version). Clicking downloads, verifies, and installs it automatically. Running servers save and stop, then restart after the update. Worlds and settings are preserved."
+            : "Valheim Server Manager for Mac. Checks for manager updates on launch and every six hours. Refresh Status checks again."
         menu.addItem(.separator())
         if serverUpdateAvailable {
             add(menu, "Update Valheim Server…", #selector(serverVersionClicked), enabled: !busy && busyProfiles.isEmpty && !checkingVersion && !starting && !stopping)
@@ -173,10 +188,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         } else if let installedBuild {
             let suffix: String
             if checkingVersion { suffix = "Checking for updates…" }
-            else if versionCheckFailed { suffix = "Check unavailable · Retry" }
+            else if versionCheckFailed { suffix = "Update check unavailable" }
             else if latestBuild != nil { suffix = "Up to date" }
-            else { suffix = "Check for updates" }
-            add(menu, "Valheim Server Build \(installedBuild) — \(suffix)", #selector(serverVersionClicked), enabled: !busy && busyProfiles.isEmpty && !checkingVersion && !starting)
+            else { suffix = "Update check pending" }
+            add(menu, "Valheim Server Build \(installedBuild) — \(suffix)")
         } else { add(menu, "Valheim Server Build: not installed or unavailable") }
         menu.items.last?.toolTip = "The installed Valheim server software is shared by all servers listed above."
         menu.addItem(.separator())
@@ -264,6 +279,59 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func profileFolder(_ sender: NSMenuItem) { if let paths = pathsForServer(sender) { try? paths.prepare(); NSWorkspace.shared.open(paths.logs) } }
     @objc func profileError(_ sender: NSMenuItem) { if let server = server(sender) { let alert = NSAlert(); alert.messageText = server.profileName; alert.informativeText = server.detail; alert.runModal() } }
     @objc func selectProfile(_ sender: NSMenuItem) { if let id = sender.representedObject as? String { perform("select-profile", args: [id]) } }
+    func checkManagerVersion(force: Bool = false) {
+        guard !checkingManager, !installingManager,
+              force || managerCheckDate == nil || Date().timeIntervalSince(managerCheckDate!) >= 6 * 3600 else { return }
+        checkingManager = true
+        managerCheckDate = Date()
+        Task { @MainActor in
+            do { managerRelease = try await ManagerUpdater.latest(); managerCheckFailed = false }
+            catch { managerCheckFailed = true }
+            checkingManager = false
+            rebuild()
+        }
+    }
+    @objc func managerVersionClicked() {
+        guard !busy, busyProfiles.isEmpty, !installingManager,
+              !pendingStarts.values.contains(where: { $0.pending }),
+              !displayed.servers.contains(where: { $0.state == "Starting" || $0.state == "Stopping" }) else { return }
+        let current = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+        guard let release = managerRelease, release.isNewer(than: current) else {
+            checkManagerVersion(force: true); rebuild(); return
+        }
+        guard !engine.paths.isDevelopment else {
+            let alert = NSAlert(); alert.messageText = "Use the installed app to update"
+            alert.informativeText = "Automatic installation is disabled in development mode."; alert.runModal(); return
+        }
+        installingManager = true; busy = true; rebuild()
+        let progress = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 420, height: 100), styleMask: [.titled], backing: .buffered, defer: false)
+        progress.title = "Updating Valheim Manager"; progress.isReleasedWhenClosed = false
+        let label = NSTextField(wrappingLabelWithString: "Downloading and verifying version \(release.version)… Your servers keep running during the download.")
+        label.frame = NSRect(x: 20, y: 20, width: 380, height: 60)
+        progress.contentView?.addSubview(label)
+        managerProgress = progress; progress.center(); progress.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        Task { @MainActor in
+            do {
+                let app = try await ManagerUpdater.download(release)
+                let configuration = NSWorkspace.OpenConfiguration()
+                configuration.createsNewApplicationInstance = true
+                configuration.allowsRunningApplicationSubstitution = false
+                configuration.arguments = ["--install-approved-update"]
+                NSWorkspace.shared.openApplication(at: app, configuration: configuration) { _, error in
+                    DispatchQueue.main.async { self.finishManagerDownload(error) }
+                }
+            } catch { finishManagerDownload(error) }
+        }
+    }
+    private func finishManagerDownload(_ error: Error?) {
+        managerProgress?.close(); managerProgress = nil
+        installingManager = false; busy = false; rebuild()
+        if let error {
+            let alert = NSAlert(); alert.messageText = "Manager update could not finish"
+            alert.informativeText = error.localizedDescription; alert.runModal()
+        }
+    }
     func checkServerVersion(force: Bool = false) {
         guard !checkingVersion, !busy, force || lastVersionCheck == nil || Date().timeIntervalSince(lastVersionCheck!) >= 900 else { return }
         installedBuild = ServerVersion.installed(paths: engine.paths)
@@ -320,7 +388,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func toggleAutostart() { perform(displayed.autostart ? "autostart-off" : "autostart-on") }
     @objc func startServer() { perform("start") }
     @objc func stopServer() { perform("stop") }
-    @objc func refreshNow() { refresh() }
+    @objc func refreshNow() { checkManagerVersion(force: true); refresh() }
     @objc func copyCode() { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(displayed.code, forType: .string) }
     @objc func openLog() {
         if let path = try? String(contentsOf: engine.paths.file("latest-log"), encoding: .utf8), FileManager.default.fileExists(atPath: path) { NSWorkspace.shared.open(URL(fileURLWithPath: path)) }

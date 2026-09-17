@@ -36,7 +36,18 @@ enum AppLocation {
         else if autostart { alert.informativeText += " Servers with auto-start enabled will start after the updated app opens." }
         alert.addButton(withTitle: running ? "Save, Stop & Update" : (updating ? "Update & Open" : "Copy to Applications & Open"))
         alert.addButton(withTitle: "Quit")
-        guard alert.runModal() == .alertFirstButtonReturn else { completion(false); return }
+        let approvedUpdate = updating && CommandLine.arguments.contains("--install-approved-update")
+        if approvedUpdate {
+            do {
+                // A downloaded updater must still be signed by our publisher before
+                // accepting the installed manager's one-click authorization.
+                let requirement = "anchor apple generic and identifier \"\(AppInstallation.bundleIdentifier)\" and certificate leaf[subject.OU] = \"AB6C5XALCV\""
+                try checkCommand("/usr/bin/codesign", ["--verify", "--deep", "--strict", "-R", "=" + requirement, current.path])
+                try checkCommand("/usr/sbin/spctl", ["--assess", "--type", "execute", current.path])
+            } catch { showError(error); completion(false); return }
+        } else {
+            guard alert.runModal() == .alertFirstButtonReturn else { completion(false); return }
+        }
         let progressWindow = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 440, height: 100), styleMask: [.titled], backing: .buffered, defer: false)
         progressWindow.title = updating ? "Updating Valheim Server Manager for Mac" : "Installing Valheim Server Manager for Mac"
         progressWindow.isReleasedWhenClosed = false
