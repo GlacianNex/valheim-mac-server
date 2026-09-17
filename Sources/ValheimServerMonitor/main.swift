@@ -122,7 +122,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         add(menu, "Valheim Server Manager for Mac · \(appVersion)")
         menu.addItem(.separator())
         if serverUpdateAvailable {
-            add(menu, "Server Update Available — Update Now…", #selector(serverVersionClicked), enabled: !busy && busyProfiles.isEmpty && !checkingVersion && !starting && !stopping)
+            add(menu, "Update Valheim Server…", #selector(serverVersionClicked), enabled: !busy && busyProfiles.isEmpty && !checkingVersion && !starting && !stopping)
             menu.items.last?.image = NSImage(systemSymbolName: "arrow.down.circle.fill", accessibilityDescription: "Server update available")
             menu.items.last?.toolTip = "A newer server build is available. Click to review the update before any servers are stopped."
             menu.addItem(.separator())
@@ -158,19 +158,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             menu.addItem(row)
         }
         menu.addItem(.separator())
-        if let installedBuild {
+        if let installedBuild, serverUpdateAvailable {
+            add(menu, "Valheim Server Build \(installedBuild)")
+        } else if let installedBuild {
             let suffix: String
             if checkingVersion { suffix = "Checking for updates…" }
             else if versionCheckFailed { suffix = "Check unavailable · Retry" }
-            else if let latestBuild, ServerVersion.updateAvailable(installed: installedBuild, latest: latestBuild) { suffix = "Update available → \(latestBuild)…" }
             else if latestBuild != nil { suffix = "Up to date" }
             else { suffix = "Check for updates" }
             add(menu, "Valheim Server Build \(installedBuild) — \(suffix)", #selector(serverVersionClicked), enabled: !busy && busyProfiles.isEmpty && !checkingVersion && !starting)
         } else { add(menu, "Valheim Server Build: not installed or unavailable") }
         menu.items.last?.toolTip = "The installed Valheim server software is shared by all servers listed above."
         menu.addItem(.separator())
-        if !displayed.installed || (!versionCheckFailed && serverUpdateAvailable) {
-            add(menu, "Set Up / Update Native Server…", #selector(showSetup), enabled: !busy && !active)
+        if !displayed.installed {
+            add(menu, "Set Up Native Server…", #selector(showSetup), enabled: !busy && !active)
         }
         add(menu, "New Server…", #selector(newProfile), enabled: !busy)
         menu.addItem(.separator())

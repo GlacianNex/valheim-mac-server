@@ -25,7 +25,7 @@ Choose an optional **World seed** when creating a new server, or leave it blank 
 ## Included
 
 - Automatic native server download and manual server updates, with installation progress and retry.
-- An available server update adds a yellow **!** badge to the menu bar and an **Server Update Available — Update Now…** action at the top of the menu. Servers keep running until you approve the update.
+- An available server update adds a yellow **!** badge to the menu bar and an **Update Valheim Server…** action at the top of the menu. Servers keep running until you approve the update.
 - The menu shows the installed server's Steam build and checks Valve's stable release on launch and every 15 minutes while hosting continues. Click an available update to save, stop, update, and restart the servers that were running.
 - Open a newer downloaded app and choose **Update & Open** to replace the installed manager while preserving profiles and worlds. If hosting, **Save, Stop & Update** saves and stops all running servers first. After a successful app update, each server starts if its auto-start setting is enabled or it was running before the update.
 - Intel and Apple Silicon app binaries; macOS 13 or later.
