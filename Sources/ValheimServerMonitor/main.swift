@@ -115,7 +115,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.imagePosition = .imageLeading
         item.button?.font = NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .medium)
         item.button?.title = " Valheim · " + (stopping ? "Stopping…" : (starting ? "Starting…" : (displayed.players.isEmpty ? "—" : displayed.players)))
-        if serverUpdateAvailable { item.button?.title.append(" · Server update available") }
         item.button?.toolTip = "Valheim Server Manager for Mac — \(displayed.profileName) — \(state), \(displayed.players.isEmpty ? "unknown" : displayed.players) players. Refreshes every second; shows the latest player count reported in server logs."
         if serverUpdateAvailable { item.button?.toolTip?.append(" A Valheim server update is available. Open the menu to update.") }
         let menu = NSMenu(); menu.autoenablesItems = false
