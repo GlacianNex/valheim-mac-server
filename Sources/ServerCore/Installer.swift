@@ -25,7 +25,18 @@ public final class Installer {
             try checkCommand("/usr/bin/lipo", [file.path, "-verify_arch", architecture])
         }
     }
-    public func install() throws {
+    /// A leftover marker must not keep status stuck after an interrupted installer.
+    public static func isInstalling(paths: Paths) -> Bool {
+        let marker = paths.root.appendingPathComponent("installing")
+        guard let text = try? String(contentsOf: marker, encoding: .utf8),
+              let pid = Int32(text), pid > 0, kill(pid, 0) == 0 || errno == EPERM else { return false }
+        let fd = open(paths.root.appendingPathComponent("runtime.lock").path, O_RDONLY)
+        guard fd >= 0 else { return false }
+        defer { close(fd) }
+        if flock(fd, LOCK_SH | LOCK_NB) == 0 { flock(fd, LOCK_UN); return false }
+        return errno == EWOULDBLOCK
+    }
+    public func install(progressReady: (() -> Void)? = nil) throws {
         try paths.prepare()
         let runtimeLease = try RuntimeLease(paths: paths, exclusive: true)
         defer { withExtendedLifetime(runtimeLease) {} }
@@ -47,6 +58,7 @@ public final class Installer {
         let logURL = paths.logs.appendingPathComponent("installation.log")
         fm.createFile(atPath: logURL.path, contents: Data("[Monitor] Preparing Valve’s download tool…\n".utf8), attributes: [.posixPermissions: 0o600])
         let log = try FileHandle(forWritingTo: logURL); try log.seekToEnd(); defer { try? log.close() }
+        progressReady?()
         let script = steam.appendingPathComponent("steamcmd.sh")
         if !fm.fileExists(atPath: script.path) {
             let archive = runtime.appendingPathComponent("steamcmd.tar.gz")

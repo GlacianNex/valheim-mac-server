@@ -13,6 +13,34 @@ final class FleetTests: XCTestCase {
     func profile(_ name: String, port: Int) -> Profile {
         var p = Profile(); p.label = name; p.name = name; p.world = name; p.password = "test-only-secret"; p.port = port; return p
     }
+    func testInstallerLockAndOldStopRequestReportUpdatingNotStopping() throws {
+        let original = profile("Legacy", port: 29400)
+        var db = Database(); db.profiles = [original]; db.selected = original.id
+        try atomicWrite(encode(db), to: paths.file("profiles.json"))
+        _ = try store.load()
+        try Lifecycle(paths: paths).requestStop(wait: false)
+        let fd = open(paths.file("service.lock").path, O_CREAT | O_RDWR, 0o600)
+        defer { flock(fd, LOCK_UN); close(fd) }
+        XCTAssertEqual(flock(fd, LOCK_EX | LOCK_NB), 0)
+        let runtime = try RuntimeLease(paths: paths, exclusive: true)
+        defer { withExtendedLifetime(runtime) {} }
+        try atomicWrite(Data(String(getpid()).utf8), to: paths.file("installing"))
+        let status = try Lifecycle(paths: paths).status()
+        XCTAssertEqual(status.state, "Updating"); XCTAssertFalse(status.running)
+        XCTAssertEqual(Fleet.state(for: [status]), "Updating")
+    }
+    func testStaleInstallationMarkerDoesNotKeepStatusUpdating() throws {
+        let item = profile("Example", port: 29400); try store.save(item)
+        try atomicWrite(Data(String(getpid()).utf8), to: paths.file("installing"))
+        XCTAssertFalse(Installer.isInstalling(paths: paths), "Marker alone is not proof of an active update")
+        XCTAssertNotEqual(try Lifecycle(paths: paths).status().state, "Updating")
+    }
+    func testUpdateStageTitlesKeepDownloadAndVerificationUnderUpdating() {
+        XCTAssertEqual(ServerUpdateProgress(.stopping, message: "Saving worlds").title, "Stopping…")
+        XCTAssertEqual(ServerUpdateProgress(.installing, message: "Downloading server files", percent: 42).title, "Updating 42%")
+        XCTAssertEqual(ServerUpdateProgress(.installing, message: "Checking server files", percent: 90).title, "Updating 90%")
+        XCTAssertEqual(ServerUpdateProgress(.starting, message: "Starting servers").title, "Starting…")
+    }
     func testMigrationPreservesLegacyWorldAndAutostartAndBacksUpDatabase() throws {
         let original = profile("Legacy", port: 29400)
         var db = Database(); db.profiles = [original]; db.selected = original.id; db.autostart = true

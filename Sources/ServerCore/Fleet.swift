@@ -5,6 +5,7 @@ public final class Fleet {
     public let paths: Paths
     public init(paths: Paths) { self.paths = Paths(root: paths.root) }
     public static func state(for servers: [ServerStatus]) -> String {
+        if servers.contains(where: { $0.state == "Updating" }) { return "Updating" }
         let running = servers.filter { $0.running }
         if running.contains(where: { $0.state == "Stopping" }) { return "Stopping" }
         if running.contains(where: { $0.state == "Starting" }) { return "Starting" }

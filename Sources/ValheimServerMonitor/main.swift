@@ -29,6 +29,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var managerCheckFailed = false
     var installingManager = false
     var managerProgress: NSWindow?
+    var serverUpdateProgress: ServerUpdateProgress?
     var serverUpdate: ServerUpdateWindow?
     var setup: SetupWindow?
     let engine = Engine()
@@ -70,6 +71,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self.refreshing = false
                 guard generation == self.statusGeneration else { self.refresh(); return }
                 self.displayed = parsed ?? ServerStatusPlaceholder()
+                if self.serverUpdate == nil, parsed != nil { self.serverUpdateProgress = nil }
                 for server in self.displayed.servers {
                     if self.pendingStarts[server.selected]?.observe(running: server.running) == true {
                         let alert = NSAlert(); alert.messageText = "Startup not confirmed: " + server.profileName
@@ -101,9 +103,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let stopping = displayed.state == "Stopping" || displayed.servers.contains { $0.state == "Stopping" }
         let starting = startFeedback.pending || pendingStarts.values.contains { $0.pending } || displayed.state == "Starting"
         let active = displayed.running || starting
-        let state = stopping ? "Stopping…" : (starting ? "Starting…" : displayed.state)
-        let online = displayed.state == "Online" && !starting && !stopping
-        let color: NSColor = online ? .systemGreen : (active ? .systemOrange : .systemRed)
+        let updateTitle = serverUpdateProgress?.title ?? (displayed.state == "Updating" ? "Updating…" : nil)
+        let state = updateTitle ?? (stopping ? "Stopping…" : (starting ? "Starting…" : displayed.state))
+        let online = serverUpdateProgress == nil && displayed.state == "Online" && !starting && !stopping
+        let color: NSColor = online ? .systemGreen : (active || updateTitle != nil ? .systemOrange : .systemRed)
         let updateBadge = NSImage(size: NSSize(width: 16, height: 16), flipped: false) { _ in
             NSColor.systemYellow.setFill()
             NSBezierPath(ovalIn: NSRect(x: 0, y: 0, width: 16, height: 16)).fill()
@@ -123,7 +126,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.image = light
         item.button?.imagePosition = .imageLeading
         item.button?.font = NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .medium)
-        item.button?.title = " Valheim · " + (stopping ? "Stopping…" : (starting ? "Starting…" : (displayed.players.isEmpty ? "—" : displayed.players)))
+        item.button?.title = " Valheim · " + (updateTitle ?? (stopping ? "Stopping…" : (starting ? "Starting…" : (displayed.players.isEmpty ? "—" : displayed.players))))
         if serverUpdateAvailable, let button = item.button {
             let title = NSMutableAttributedString(string: button.title + " ", attributes: [.font: button.font ?? NSFont.systemFont(ofSize: 13), .foregroundColor: NSColor.labelColor])
             let badge = NSTextAttachment()
@@ -133,6 +136,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             button.attributedTitle = title
         }
         item.button?.toolTip = "Valheim Server Manager for Mac — \(displayed.profileName) — \(state), \(displayed.players.isEmpty ? "unknown" : displayed.players) players. Refreshes every second; shows the latest player count reported in server logs."
+        if let update = serverUpdateProgress { item.button?.toolTip = update.message }
         if serverUpdateAvailable { item.button?.toolTip?.append(" A Valheim server update is available. Open the menu to update.") }
         let menu = NSMenu(); menu.autoenablesItems = false
         let appVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Development"
@@ -147,9 +151,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             : "Valheim Server Manager for Mac. Checks for manager updates on launch and every six hours. Refresh Status checks again."
         menu.addItem(.separator())
         if serverUpdateAvailable {
-            add(menu, "Update Valheim Server…", #selector(serverVersionClicked), enabled: !busy && busyProfiles.isEmpty && !checkingVersion && !starting && !stopping)
+            add(menu, serverUpdateProgress?.title ?? "Update Valheim Server…", #selector(serverVersionClicked), enabled: !busy && busyProfiles.isEmpty && !checkingVersion && !starting && !stopping)
             menu.items.last?.image = updateBadge
-            menu.items.last?.toolTip = "A newer server build is available. Click to review the update before any servers are stopped."
+            menu.items.last?.toolTip = serverUpdateProgress?.message ?? "A newer server build is available. Click to review the update before any servers are stopped."
             menu.addItem(.separator())
         }
         for server in displayed.servers {
@@ -357,10 +361,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         alert.informativeText = "Install Valve’s latest stable server build (currently \(latestBuild)). All running servers will save and stop, disconnecting players, then restart after a successful update. Your profiles and worlds are preserved."
         alert.addButton(withTitle: "Update Server"); alert.addButton(withTitle: "Cancel")
         guard alert.runModal() == .alertFirstButtonReturn else { return }
-        busy = true; rebuild()
-        serverUpdate = ServerUpdateWindow(engine: engine) { [weak self] in
+        busy = true
+        serverUpdateProgress = ServerUpdateProgress(displayed.running ? .stopping : .installing, message: displayed.running ? "Saving worlds and stopping servers…" : "Preparing the server update…")
+        rebuild()
+        serverUpdate = ServerUpdateWindow(engine: engine, onProgress: { [weak self] progress in
+            guard progress.phase != .preparing else { return }
+            self?.serverUpdateProgress = progress
+            self?.rebuild()
+        }) { [weak self] in
             guard let self else { return }
             self.busy = false; self.serverUpdate = nil
+            if self.serverUpdateProgress?.phase == .starting { self.startFeedback.begin() }
             self.statusGeneration += 1
             self.checkServerVersion(force: true); self.refresh()
         }

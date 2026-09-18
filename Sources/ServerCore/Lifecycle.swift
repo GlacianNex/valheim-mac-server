@@ -55,6 +55,11 @@ public final class Lifecycle {
         value.installed = FileManager.default.isExecutableFile(atPath: paths.executable.path)
         value.profiles = db.profiles.map { ServerStatus.Summary(id: $0.id, label: $0.label) }
         value.selected = paths.profileID ?? db.selected; value.profileName = db.profiles.first { $0.id == value.selected }?.label ?? "No profile"
+        // Installation owns the legacy service lock too; it is not a running server.
+        if Installer.isInstalling(paths: paths) {
+            value.state = "Updating"; value.running = false
+            return value
+        }
         value.running = isActive
         if value.running {
             value.state = FileManager.default.fileExists(atPath: paths.file("installing").path) ? "Installing" : "Starting"
