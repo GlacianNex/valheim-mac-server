@@ -13,6 +13,8 @@ jobs:
         run: bash -n scripts/build.sh scripts/apple-preflight.sh scripts/notarize.sh
       - name: Unit tests
         run: swift test
+      - name: Verify update status UI
+        run: scripts/test-status-update.sh
       - name: Build universal app
         run: scripts/build.sh
       - uses: actions/upload-artifact@v4

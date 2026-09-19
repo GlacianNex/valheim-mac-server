@@ -4,7 +4,7 @@ Host a Valheim dedicated server on your Mac. This native macOS menu bar app inst
 
 **Requires macOS 13 Ventura or later.** The download includes Apple Silicon and Intel Mac binaries. Runtime testing is currently on Apple Silicon; Intel hardware validation is still pending. Allow 6 GB of free disk space for installation and updates. The hosting app is for macOS only.
 
-**Version 1.1.6 is Developer ID signed and notarized by Apple**, with the notarization ticket attached.
+**Version 1.1.7 is Developer ID signed and notarized by Apple**, with the notarization ticket attached.
 
 [Download for Mac](https://github.com/GlacianNex/valheim-mac-server/releases/latest) · [Mac setup and recovery](docs/SETUP.md) · [Development](CONTRIBUTING.md)
 
@@ -26,9 +26,11 @@ Choose an optional **World seed** when creating a new server, or leave it blank 
 
 ## Included
 
-- Automatic native server download and manual server updates, with installation progress and retry.
-- An available server update adds a yellow **!** badge to the menu bar and an **Update Valheim Server…** action at the top of the menu. Servers keep running until you approve the update.
-- The menu shows the installed server's Steam build and checks Valve's stable release on launch and every 15 minutes while hosting continues. Click an available update to save, stop, update, and restart the servers that were running.
+- Automatic native server download and optional automatic server updates, with installation progress and retry.
+- An available server update adds a yellow **!** badge to the menu bar and an **Update Valheim Server…** action at the top of the menu. Servers keep running until you approve the update, unless you enable automatic server updates.
+- The menu shows the installed server's Steam build and checks Valve's stable release on launch and every 10 minutes while hosting continues. Click an available update to save, stop, update, and restart the servers that were running.
+- **Automatically Update Valheim Server** is off by default. When enabled, a new stable build waits until every running server is online and reports **0 players**, then triggers save → stop → update → restart for those servers. Unknown player counts block automatic updates. The manager must be open. This release cannot broadcast in-game warnings. A failed automatic attempt is not repeated for the same build—retry manually, or turn the option off and on.
+- During server updates, the menu bar immediately shows **Stopping → Updating → Starting**, including update percentage when reported. The progress window shows the current operation and elapsed stage time.
 - The manager checks GitHub for stable app updates on launch and every six hours. Its top menu line stays grey with **Up to date**, or becomes clickable with **Update Available**. Clicking downloads and verifies the signed, notarized app, saves and stops running servers, installs the update, and reopens the manager. Previously running servers and those with auto-start enabled restart afterward. **Refresh Status** also checks for manager updates.
 - To update manually, open a newer downloaded app and choose **Update & Open** to replace the installed manager while preserving profiles and worlds. If hosting, **Save, Stop & Update** saves and stops all running servers first. After a successful app update, each server starts if its auto-start setting is enabled or it was running before the update.
 - Intel and Apple Silicon app binaries; macOS 13 or later.

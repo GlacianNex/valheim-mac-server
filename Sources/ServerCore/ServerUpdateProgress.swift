@@ -18,3 +18,14 @@ public struct ServerUpdateProgress {
         }
     }
 }
+
+public enum ServerUpdatePolicy {
+    public static func serversAreEmpty(_ servers: [ServerStatus]) -> Bool {
+        servers.allSatisfy { !$0.running || ($0.state == "Online" && $0.players == "0") }
+    }
+    public static let checkInterval: TimeInterval = 600
+    public static func shouldStart(enabled: Bool, installed: String?, latest: String?, busy: Bool, lastAttempt: String?) -> Bool {
+        guard enabled, !busy, let installed, let latest, latest != lastAttempt else { return false }
+        return ServerVersion.updateAvailable(installed: installed, latest: latest)
+    }
+}

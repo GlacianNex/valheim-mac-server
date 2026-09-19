@@ -20,7 +20,7 @@ final class ServerUpdateWindow {
         if let percent = value.percent { progress.doubleValue = percent } else { progress.startAnimation(nil) }
         onProgress(value)
     }
-    init(engine: Engine, onProgress: @escaping (ServerUpdateProgress) -> Void, completion: @escaping () -> Void) {
+    init(engine: Engine, automaticBuild: String? = nil, onProgress: @escaping (ServerUpdateProgress) -> Void, completion: @escaping () -> Void) {
         self.onProgress = onProgress
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 520, height: 150), styleMask: [.titled], backing: .buffered, defer: false)
         window.title = "Updating Valheim Server"; window.isReleasedWhenClosed = false
@@ -42,6 +42,15 @@ final class ServerUpdateWindow {
             var failure: String?
             do {
                 let fleet = Fleet(paths: engine.paths)
+                if let automaticBuild {
+                    let store = try Store(paths: engine.paths)
+                    guard try store.load().automaticServerUpdates == true,
+                          ServerUpdatePolicy.serversAreEmpty(try fleet.statuses()) else {
+                        DispatchQueue.main.async { self.timer?.invalidate(); self.timer = nil; self.window.close(); completion() }
+                        return
+                    }
+                    try store.update { $0.lastAutomaticServerUpdateAttempt = automaticBuild }
+                }
                 let restart = try fleet.runningIDs()
                 if !restart.isEmpty {
                     DispatchQueue.main.async { self.report(ServerUpdateProgress(.stopping, message: "Saving worlds and stopping servers…")) }

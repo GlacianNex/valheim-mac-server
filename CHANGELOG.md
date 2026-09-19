@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.7 — 2026-09-18
+
+- Show Stopping → Updating → Starting promptly in the menu bar, with reported percentages and elapsed stage time in the update window.
+- Fix a stale stop request and installer lock incorrectly keeping status at Stopping throughout installation.
+- Check stable Valheim server versions every 10 minutes. Add opt-in automatic server updates that wait until every running server reports zero players, then save, stop, update and restart them. Failed automatic attempts do not loop on the same build.
+- Mod support remains separate and is not included.
+
 ## 1.1.6 — 2026-09-17
 
 - Check for manager updates every six hours. The top menu line stays grey when up to date and offers a one-click verified download and installation when an update is available.

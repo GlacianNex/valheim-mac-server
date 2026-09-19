@@ -11,6 +11,7 @@ public struct RunningRecord: Codable {
 public struct ServerStatus: Codable {
     public var state = "Stopped", players = "", code = "", profileName = "No profile", selected = ""
     public var running = false, autostart = false, monitorAtLogin = false, installed = false
+    public var automaticServerUpdates: Bool?
     public var profiles: [Summary] = []
     public var servers: [ServerStatus] = []
     public var detail = ""
@@ -51,6 +52,7 @@ public final class Lifecycle {
     public func status() throws -> ServerStatus {
         let db = try Store(paths: paths).load()
         var value = ServerStatus()
+        value.automaticServerUpdates = db.automaticServerUpdates ?? false
         value.autostart = try Store(paths: paths).autostart(paths.profileID ?? db.selected, database: db); value.monitorAtLogin = db.monitorAtLogin
         value.installed = FileManager.default.isExecutableFile(atPath: paths.executable.path)
         value.profiles = db.profiles.map { ServerStatus.Summary(id: $0.id, label: $0.label) }

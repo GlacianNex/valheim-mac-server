@@ -52,6 +52,10 @@ public final class Engine {
         case "autostart-off": try LoginItems(paths: servicePaths).serverAtLogin(false)
         case "monitor-login-on": try LoginItems(paths: paths).monitorAtLogin(true)
         case "monitor-login-off": try LoginItems(paths: paths).monitorAtLogin(false)
+        case "automatic-server-updates-on":
+            try store.update { $0.automaticServerUpdates = true; $0.lastAutomaticServerUpdateAttempt = nil }
+        case "automatic-server-updates-off":
+            try store.update { $0.automaticServerUpdates = false }
         case "install": try Installer(paths: paths).install()
         case "check-server-update": return try ServerVersion.check(paths: paths)
         default: throw MonitorError("Unknown command.")

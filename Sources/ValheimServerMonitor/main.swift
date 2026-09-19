@@ -4,6 +4,7 @@ import ServerCore
 struct ServerStatusPlaceholder: Decodable {
     var state = "Checking…", players = "", code = "", profileName = "No profile", selected = "", detail = ""
     var running = false, autostart = false, monitorAtLogin = false, installed = false
+    var automaticServerUpdates: Bool?
     var profiles: [Summary] = []
     var servers: [ServerStatusPlaceholder] = []
     struct Summary: Decodable { var id: String; var label: String }
@@ -88,6 +89,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     if alert.runModal() == .alertFirstButtonReturn { self.openLog() }
                 }
                 self.rebuild()
+                self.maybeAutomaticallyUpdateServer()
             }
         }
     }
@@ -198,6 +200,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             add(menu, "Valheim Server Build \(installedBuild) — \(suffix)")
         } else { add(menu, "Valheim Server Build: not installed or unavailable") }
         menu.items.last?.toolTip = "The installed Valheim server software is shared by all servers listed above."
+        add(menu, "Automatically Update Valheim Server", #selector(toggleAutomaticServerUpdates), enabled: !busy)
+        menu.items.last?.state = displayed.automaticServerUpdates == true ? .on : .off
+        menu.items.last?.toolTip = "Checks every 10 minutes while the manager is open. Waits until all running servers report zero players, then saves, stops, updates and restarts them. Unknown player counts block automatic updates. Off by default."
         menu.addItem(.separator())
         if !displayed.installed {
             add(menu, "Set Up Native Server…", #selector(showSetup), enabled: !busy && !active)
@@ -337,7 +342,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     func checkServerVersion(force: Bool = false) {
-        guard !checkingVersion, !busy, force || lastVersionCheck == nil || Date().timeIntervalSince(lastVersionCheck!) >= 900 else { return }
+        guard !checkingVersion, !busy, force || lastVersionCheck == nil || Date().timeIntervalSince(lastVersionCheck!) >= ServerUpdatePolicy.checkInterval else { return }
         installedBuild = ServerVersion.installed(paths: engine.paths)
         lastVersionCheck = Date()
         guard installedBuild != nil else { return }
@@ -348,8 +353,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self.checkingVersion = false; self.latestBuild = build ?? self.latestBuild; self.versionCheckFailed = build == nil
                 self.installedBuild = ServerVersion.installed(paths: self.engine.paths)
                 self.rebuild()
+                self.maybeAutomaticallyUpdateServer()
             }
         }
+    }
+    @objc func toggleAutomaticServerUpdates() {
+        perform(displayed.automaticServerUpdates == true ? "automatic-server-updates-off" : "automatic-server-updates-on")
+    }
+    func maybeAutomaticallyUpdateServer() {
+        guard displayed.automaticServerUpdates == true, !versionCheckFailed, !checkingVersion,
+              !busy, busyProfiles.isEmpty, !startFeedback.pending, !pendingStarts.values.contains(where: { $0.pending }),
+              displayed.state != "Starting", displayed.state != "Stopping", serverUpdateProgress == nil,
+              displayed.servers.allSatisfy({ !$0.running || ($0.state == "Online" && $0.players == "0") }) else { return }
+        guard let store = try? Store(paths: engine.paths), let db = try? store.load(),
+              ServerUpdatePolicy.shouldStart(enabled: db.automaticServerUpdates == true, installed: installedBuild, latest: latestBuild, busy: false, lastAttempt: db.lastAutomaticServerUpdateAttempt) else { return }
+        beginServerUpdate(automaticBuild: latestBuild)
     }
     @objc func serverVersionClicked() {
         guard !busy, busyProfiles.isEmpty, !checkingVersion, !pendingStarts.values.contains(where: { $0.pending }) else { return }
@@ -361,10 +379,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         alert.informativeText = "Install Valve’s latest stable server build (currently \(latestBuild)). All running servers will save and stop, disconnecting players, then restart after a successful update. Your profiles and worlds are preserved."
         alert.addButton(withTitle: "Update Server"); alert.addButton(withTitle: "Cancel")
         guard alert.runModal() == .alertFirstButtonReturn else { return }
+        beginServerUpdate()
+    }
+    func beginServerUpdate(automaticBuild: String? = nil) {
         busy = true
         serverUpdateProgress = ServerUpdateProgress(displayed.running ? .stopping : .installing, message: displayed.running ? "Saving worlds and stopping servers…" : "Preparing the server update…")
         rebuild()
-        serverUpdate = ServerUpdateWindow(engine: engine, onProgress: { [weak self] progress in
+        serverUpdate = ServerUpdateWindow(engine: engine, automaticBuild: automaticBuild, onProgress: { [weak self] progress in
             guard progress.phase != .preparing else { return }
             self?.serverUpdateProgress = progress
             self?.rebuild()

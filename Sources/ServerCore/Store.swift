@@ -7,6 +7,8 @@ public struct Database: Codable {
     public var selected = ""
     public var autostart = false
     public var monitorAtLogin = false
+    public var automaticServerUpdates: Bool?
+    public var lastAutomaticServerUpdateAttempt: String?
     public var legacyProfile: String?
     public var profileAutostart: [String: Bool]?
     public init() {}
