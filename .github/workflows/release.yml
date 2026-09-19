@@ -43,6 +43,14 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple: -k "$keychain_password" "$keychain_path"
           security list-keychains -d user -s "$keychain_path"
           echo "SIGNING_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Prepare management build references
+        run: |
+          export VSM_HOME="$RUNNER_TEMP/valheim-build-runtime"
+          "$(swift build --show-bin-path)/ValheimServerMonitor" --control install
+          echo "GAME_MANAGED_PATH=$VSM_HOME/runtime/server/valheim_server/Data/Managed" >> "$GITHUB_ENV"
       - name: Build app
         run: scripts/build.sh
       - name: Notarize and staple

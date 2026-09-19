@@ -61,6 +61,8 @@ enum AppLocation {
             do {
                 // Serialize updates, then hold the server lock through the replacement.
                 try withLock(paths.file("app-update.lock")) {
+                    let maintenanceLease = try MaintenanceLease(paths:paths)
+                    defer { withExtendedLifetime(maintenanceLease) {} }
                     let fleet = Fleet(paths: paths)
                     resumeProfiles = try fleet.resumeIDs()
                     try fleet.stopAll()

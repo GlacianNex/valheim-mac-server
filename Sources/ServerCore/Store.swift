@@ -8,6 +8,9 @@ public struct Database: Codable {
     public var autostart = false
     public var monitorAtLogin = false
     public var automaticServerUpdates: Bool?
+    public var restartSchedules: [String: RestartSchedule]?
+    public var restartReceipts: [String: RestartReceipt]?
+    public var managedServers: [String: Bool]?
     public var lastAutomaticServerUpdateAttempt: String?
     public var legacyProfile: String?
     public var profileAutostart: [String: Bool]?
@@ -61,7 +64,7 @@ public final class Store {
                 } catch { try? FileManager.default.removeItem(at: directory); throw error }
             }
             if let index = db.profiles.firstIndex(where: { $0.id == profile.id }) { db.profiles[index] = profile }
-            else { db.profiles.append(profile) }
+            else { db.profiles.append(profile); if db.managedServers == nil { db.managedServers = [:] }; db.managedServers?[profile.id] = true }
             if db.selected.isEmpty { db.selected = profile.id }
             if db.legacyProfile?.isEmpty != false { db.legacyProfile = db.selected }
             return profile.id
@@ -110,6 +113,9 @@ public final class Store {
                 }
                 db.profiles.removeAll { $0.id == id }
                 db.profileAutostart?.removeValue(forKey: id)
+                db.restartSchedules?.removeValue(forKey: id)
+                db.restartReceipts?.removeValue(forKey: id)
+                db.managedServers?.removeValue(forKey: id)
                 if db.legacyProfile == id { db.autostart = false }
                 if db.selected == id { db.selected = db.profiles.first?.id ?? "" }
                 return recovery

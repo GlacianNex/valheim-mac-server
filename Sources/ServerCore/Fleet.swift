@@ -22,10 +22,10 @@ public final class Fleet {
         let store = try Store(paths: paths), db = try store.load(), running = Set(try runningIDs())
         return db.profiles.filter { running.contains($0.id) || store.autostart($0.id, database: db) }.map(\.id)
     }
-    public func stopAll() throws {
+    public func stopAll(manual: Bool = true) throws {
         let servers = try lifecycles().filter { $0.isActive }
-        for server in servers { try server.requestStop(wait: false) }
-        for server in servers { try server.requestStop() }
+        for server in servers { try server.requestStop(wait: false, manual: manual) }
+        for server in servers { try server.requestStop(manual: manual) }
     }
     public func start(_ ids: [String]) throws {
         let store = try Store(paths: paths), db = try store.load()

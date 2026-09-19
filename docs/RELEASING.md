@@ -1,10 +1,10 @@
 # Releasing
 
-The ZIP contains the manager only. SteamCMD and Valheim are downloaded from Valve during setup.
+The ZIP contains the manager and its tested BepInEx/RCON management package, licenses and Doorstop source. SteamCMD and Valheim are downloaded from Valve during setup.
 
 ## Build and notarize locally
 
-Use a new version number, update the build default and changelog, and run:
+Build `dist/Management` first as described in CONTRIBUTING.md. Use a new version number, update the build default and changelog, and run:
 
 ```sh
 swift test

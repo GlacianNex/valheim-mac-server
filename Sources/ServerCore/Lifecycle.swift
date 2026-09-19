@@ -11,6 +11,7 @@ public struct RunningRecord: Codable {
 public struct ServerStatus: Codable {
     public var state = "Stopped", players = "", code = "", profileName = "No profile", selected = ""
     public var running = false, autostart = false, monitorAtLogin = false, installed = false
+    public var managementEnabled: Bool?
     public var automaticServerUpdates: Bool?
     public var profiles: [Summary] = []
     public var servers: [ServerStatus] = []
@@ -38,7 +39,8 @@ public final class Lifecycle {
         let actual = Self.executable(record.pid)
         guard !actual.isEmpty else { return false }
         let canonicalActual = URL(fileURLWithPath: actual).resolvingSymlinksInPath().path
-        return record.executable == paths.executable.resolvingSymlinksInPath().path &&
+        let allowed = [paths.executable, ManagedServer(paths: paths).executable].map { $0.resolvingSymlinksInPath().path }
+        return allowed.contains(record.executable) &&
             canonicalActual == record.executable && !record.started.isEmpty && Self.birth(record.pid) == record.started
     }
     public var isActive: Bool {
@@ -52,6 +54,7 @@ public final class Lifecycle {
     public func status() throws -> ServerStatus {
         let db = try Store(paths: paths).load()
         var value = ServerStatus()
+        value.managementEnabled = ManagedServer(paths: paths).enabled
         value.automaticServerUpdates = db.automaticServerUpdates ?? false
         value.autostart = try Store(paths: paths).autostart(paths.profileID ?? db.selected, database: db); value.monitorAtLogin = db.monitorAtLogin
         value.installed = FileManager.default.isExecutableFile(atPath: paths.executable.path)
@@ -68,7 +71,7 @@ public final class Lifecycle {
             if requested("stop-request") { value.state = "Stopping" }
             if let record, owns(record) {
                 let parsed = ServerLogReader.shared.read(URL(fileURLWithPath: record.log))
-                value.players = parsed.players; value.code = parsed.code
+                value.players = parsed.players; value.code = value.state == "Stopping" ? "" : parsed.code
                 let crossplay = db.profiles.first { $0.id == record.profile }?.crossplay ?? true
                 let ready = crossplay ? !parsed.code.isEmpty : parsed.online
                 if ready && value.state != "Stopping" { value.state = "Online" }
@@ -104,7 +107,9 @@ public final class Lifecycle {
         try? FileManager.default.removeItem(at: paths.file("stop-request"))
         try? FileManager.default.removeItem(at: paths.file("last-error.txt"))
     }
-    public func requestStop(wait: Bool = true) throws {
+    public var manualStopGeneration: String { (try? String(contentsOf: paths.file("manual-stop-generation"), encoding: .utf8)) ?? "" }
+    public func requestStop(wait: Bool = true, manual: Bool = true) throws {
+        if manual { try atomicWrite(Data(UUID().uuidString.utf8), to: paths.file("manual-stop-generation")) }
         try atomicWrite(Data(Self.bootID().utf8), to: paths.file("stop-request"))
         try? FileManager.default.removeItem(at: paths.file("start-request"))
         // A live service sends exactly one interrupt. Recover an orphan only after ownership checks.
@@ -113,7 +118,7 @@ public final class Lifecycle {
             if flock(fd, LOCK_EX | LOCK_NB) == 0 {
                 defer { flock(fd, LOCK_UN) }
                 if let record, owns(record) {
-                    guard kill(record.pid, SIGINT) == 0 || errno == ESRCH else { close(fd); throw MonitorError("Could not request a clean shutdown.") }
+                    guard kill(record.pid, record.executable == ManagedServer(paths: paths).executable.path ? SIGTERM : SIGINT) == 0 || errno == ESRCH else { close(fd); throw MonitorError("Could not request a clean shutdown.") }
                 }
             }
             close(fd)
@@ -139,6 +144,8 @@ public final class Lifecycle {
     }
     public func runService() throws {
         try paths.prepare()
+        let maintenanceLease = try MaintenanceLease(paths: paths, exclusive: false)
+        defer { withExtendedLifetime(maintenanceLease) {} }
         let runtimeLease = try RuntimeLease(paths: paths, exclusive: false)
         defer { withExtendedLifetime(runtimeLease) {} }
         let fd = open(paths.file("service.lock").path, O_CREAT | O_RDWR, 0o600)
@@ -165,32 +172,58 @@ public final class Lifecycle {
         let console = paths.logs.appendingPathComponent("console-\(session).log")
         FileManager.default.createFile(atPath: console.path, contents: nil, attributes: [.posixPermissions: 0o600])
         let handle = try FileHandle(forWritingTo: console); defer { try? handle.close() }
-        let child = Process(); child.executableURL = paths.executable
-        child.currentDirectoryURL = paths.server
+        let management = ManagedServer(paths: paths)
+        if management.enabled { try management.prepare() }
+        let launchExecutable = management.enabled ? management.executable : paths.executable
+        let child = Process(); child.executableURL = launchExecutable
+        child.currentDirectoryURL = management.enabled ? management.runtime : paths.server
         child.arguments = try profile.arguments(saveDirectory: store.saveDirectory(profile), log: log)
         var environment = ProcessInfo.processInfo.environment; environment["SteamAppId"] = "892970"
         // The server depot omits steamclient.dylib. Use Valve's universal libraries already downloaded by SteamCMD.
         environment["DYLD_FALLBACK_LIBRARY_PATH"] = paths.file("runtime/steamcmd").path + ":/usr/local/lib:/usr/lib"
+        if management.enabled {
+            environment["DOORSTOP_ENABLED"] = "1"
+            environment["DOORSTOP_TARGET_ASSEMBLY"] = management.runtime.appendingPathComponent("BepInEx/core/BepInEx.Preloader.dll").path
+            let injection = management.runtime.appendingPathComponent("libdoorstop.dylib").path
+            #if arch(arm64)
+            let architecture = "-arm64"
+            #else
+            let architecture = "-x86_64"
+            #endif
+            child.arguments = [architecture, "-e", "DYLD_INSERT_LIBRARIES=" + injection, "-e", "DYLD_FALLBACK_LIBRARY_PATH=" + environment["DYLD_FALLBACK_LIBRARY_PATH"]!, launchExecutable.path] + (child.arguments ?? [])
+            child.executableURL = URL(fileURLWithPath: "/usr/bin/arch")
+        }
         child.environment = environment; child.standardInput = FileHandle.nullDevice; child.standardOutput = handle; child.standardError = handle
         let activity = ProcessInfo.processInfo.beginActivity(options: [.idleSystemSleepDisabled, .automaticTerminationDisabled], reason: "Hosting a Valheim server")
         defer { ProcessInfo.processInfo.endActivity(activity) }
         try child.run()
-        let record = RunningRecord(pid: child.processIdentifier, executable: paths.executable.resolvingSymlinksInPath().path,
+        let record = RunningRecord(pid: child.processIdentifier, executable: launchExecutable.resolvingSymlinksInPath().path,
                                    started: Self.birth(child.processIdentifier), profile: profile.id, log: log.path)
         try atomicWrite(encode(record), to: paths.file("running.json"))
         try atomicWrite(Data(log.path.utf8), to: paths.file("latest-log"))
         flock(startFD, LOCK_UN)
+        maintenanceLease.release()
         signal(SIGTERM, SIG_IGN)
         let termination = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .global())
         termination.setEventHandler { try? self.requestStop(wait: false) }; termination.resume()
         defer { termination.cancel() }
         var sentStop = false
+        let managementDeadline = Date().addingTimeInterval(600)
+        var managementReady = !management.enabled
+        var managementFailed = false
+        var lastHealthCheck = Date.distantPast
         while child.isRunning {
-            if requested("stop-request"), !sentStop { child.interrupt(); sentStop = true }
+            if !managementReady && !sentStop && Date().timeIntervalSince(lastHealthCheck) >= 2 {
+                lastHealthCheck = Date()
+                managementReady = (try? management.connection().send("health"))?.hasPrefix("OK ManagerRcon") == true
+                if !managementReady && Date() >= managementDeadline { child.terminate(); sentStop = true; managementFailed = true }
+            }
+            if requested("stop-request"), !sentStop { if management.enabled { child.terminate() } else { child.interrupt() }; sentStop = true }
             Thread.sleep(forTimeInterval: 0.25)
         }
         child.waitUntilExit()
         try? FileManager.default.removeItem(at: paths.file("running.json"))
+        if managementFailed || (!managementReady && !requested("stop-request")) { try management.rollbackFailedStart(); throw MonitorError("Management did not become ready. The server was stopped and its previous installation restored when available. World files were preserved.") }
         if !requested("stop-request") {
             throw MonitorError("The native server exited with code \(child.terminationStatus). See the server and console logs.")
         }

@@ -32,6 +32,8 @@ public final class LoginItems {
     }
     public func start() throws {
         try guardProduction()
+        let lease = try MaintenanceLease(paths: paths, exclusive: false)
+        defer { withExtendedLifetime(lease) {} }
         let lifecycle = Lifecycle(paths: paths)
         guard !lifecycle.isActive else { return }
         let profile = try Store(paths: paths).selected(); try Fleet(paths: paths).checkProfilePorts(profile)

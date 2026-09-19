@@ -10,3 +10,5 @@ dist/
 *.key
 *.pfx
 *.keychain-db
+Companion/bin/
+Companion/obj/

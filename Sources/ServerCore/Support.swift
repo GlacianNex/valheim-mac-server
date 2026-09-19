@@ -24,7 +24,7 @@ public struct Paths {
     public var server: URL { root.appendingPathComponent("runtime/server") }
     public var executable: URL { server.appendingPathComponent("valheim_server/Valheim") }
     public func file(_ name: String) -> URL {
-        let stateFiles: Set<String> = ["service.lock", "running.json", "start-request", "stop-request", "latest-log", "last-error.txt"]
+        let stateFiles: Set<String> = ["manual-stop-generation", "service.lock", "running.json", "start-request", "stop-request", "latest-log", "last-error.txt"]
         return (stateFiles.contains(name) ? stateRoot : root).appendingPathComponent(name)
     }
     public func prepare() throws {

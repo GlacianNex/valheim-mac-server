@@ -4,6 +4,7 @@ import ServerCore
 struct ServerStatusPlaceholder: Decodable {
     var state = "Checking…", players = "", code = "", profileName = "No profile", selected = "", detail = ""
     var running = false, autostart = false, monitorAtLogin = false, installed = false
+    var managementEnabled: Bool?
     var automaticServerUpdates: Bool?
     var profiles: [Summary] = []
     var servers: [ServerStatusPlaceholder] = []
@@ -12,6 +13,10 @@ struct ServerStatusPlaceholder: Decodable {
 class AppDelegate: NSObject, NSApplicationDelegate {
     var item: NSStatusItem!
     var editor: ProfileEditor?
+    var managementWindow: ServerManagementWindow?
+    var scheduleWindow: RestartScheduleWindow?
+    var scheduleChecking = false
+    var lastScheduleCheck = Date.distantPast
     var timer: Timer?
     var busy = false
     var refreshing = false
@@ -90,6 +95,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 }
                 self.rebuild()
                 self.maybeAutomaticallyUpdateServer()
+                self.checkSchedules()
             }
         }
     }
@@ -175,9 +181,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             action(serverStarting ? "Starting Server…" : "Start Server", #selector(startProfile(_:)), enabled: !serverBusy && !serverActive && server.installed)
             action("Stop Server (Save & Stop)", #selector(stopProfile(_:)), enabled: !serverBusy && server.running)
             action(serverActive ? "View Settings…" : "Edit Server…", #selector(profileSettings(_:)), enabled: !serverBusy)
+            action("Scheduled Restart…", #selector(scheduleSettings(_:)), enabled: !serverBusy)
+            if let db = try? Store(paths:engine.paths).load(), let schedule = db.restartSchedules?[server.selected], schedule.enabled {
+                let waiting = db.restartReceipts?[server.selected]?.state == "waiting"
+                let formatter = DateFormatter(); formatter.dateStyle = .short; formatter.timeStyle = .short
+                let next = schedule.next(after:Date()).map { formatter.string(from:$0) } ?? "unavailable"
+                add(serverMenu, waiting ? "Scheduled restart: waiting for empty server" : "Next restart: " + next)
+                serverMenu.items.last?.toolTip = "Local time: " + TimeZone.current.identifier + ". Requires the manager to stay open."
+            }
             action("Automatically Start at Login", #selector(profileAutostart(_:)), enabled: !serverBusy)
             serverMenu.items.last?.state = server.autostart ? .on : .off
             serverMenu.addItem(.separator())
+            if server.managementEnabled == true {
+                action("Performance & Moderation…", #selector(openManagement(_:)), enabled: server.running && !serverStarting)
+                action("Disable Server Management", #selector(disableManagement(_:)), enabled: !serverBusy && !serverActive)
+                serverMenu.items.last?.toolTip = "Run the native server without BepInEx/RCON. Warnings and moderation are unavailable; automatic restarts wait for an empty server."
+            } else {
+                action("Enable Server Management", #selector(enableManagement(_:)), enabled: !serverBusy && !serverActive)
+            }
             action("Open Server Log", #selector(profileLog(_:)))
             action("Open Logs Folder", #selector(profileFolder(_:)))
             if !server.detail.isEmpty { action("Show Last Server Error…", #selector(profileError(_:))) }
@@ -202,7 +223,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.items.last?.toolTip = "The installed Valheim server software is shared by all servers listed above."
         add(menu, "Automatically Update Valheim Server", #selector(toggleAutomaticServerUpdates), enabled: !busy)
         menu.items.last?.state = displayed.automaticServerUpdates == true ? .on : .off
-        menu.items.last?.toolTip = "Checks every 10 minutes while the manager is open. Waits until all running servers report zero players, then saves, stops, updates and restarts them. Unknown player counts block automatic updates. Off by default."
+        menu.items.last?.toolTip = "Checks every 10 minutes while the manager is open. Managed servers receive warnings at 15, 10, 5 and 1 minute before saving, stopping, updating and restarting. Servers without working management must be empty. Off by default."
         menu.addItem(.separator())
         if !displayed.installed {
             add(menu, "Set Up Native Server…", #selector(showSetup), enabled: !busy && !active)
@@ -214,7 +235,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(.separator())
         add(menu, "Refresh Status", #selector(refreshNow))
         menu.addItem(.separator())
-        add(menu, "Quit Manager (Servers Keep Running)", #selector(quit))
+        add(menu, "Quit Manager (Servers Keep Running)", #selector(quit), enabled: !busy)
         item.menu = menu
     }
     func perform(_ action: String, args: [String] = []) {
@@ -279,6 +300,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func pathsForServer(_ sender: NSMenuItem) -> Paths? {
         guard let id = sender.representedObject as? String else { return nil }
         return try? Store(paths: engine.paths).servicePaths(id)
+    }
+    @objc func openManagement(_ sender: NSMenuItem) {
+        guard let paths = pathsForServer(sender), let server = server(sender) else { return }
+        managementWindow?.window.close()
+        managementWindow = ServerManagementWindow(paths: paths, name: server.profileName)
+    }
+    @objc func disableManagement(_ sender: NSMenuItem) {
+        guard let server = server(sender) else { return }
+        profileAction("disable-management", id:server.selected)
+    }
+    @objc func enableManagement(_ sender: NSMenuItem) {
+        guard let server = server(sender), !server.running else { return }
+        profileAction("enable-management", id: server.selected)
     }
     @objc func profileLog(_ sender: NSMenuItem) {
         guard let paths = pathsForServer(sender) else { return }
@@ -361,13 +395,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         perform(displayed.automaticServerUpdates == true ? "automatic-server-updates-off" : "automatic-server-updates-on")
     }
     func maybeAutomaticallyUpdateServer() {
-        guard displayed.automaticServerUpdates == true, !versionCheckFailed, !checkingVersion,
-              !busy, busyProfiles.isEmpty, !startFeedback.pending, !pendingStarts.values.contains(where: { $0.pending }),
+        guard !busy, busyProfiles.isEmpty,
+              !startFeedback.pending, !pendingStarts.values.contains(where: { $0.pending }),
               displayed.state != "Starting", displayed.state != "Stopping", serverUpdateProgress == nil,
-              displayed.servers.allSatisfy({ !$0.running || ($0.state == "Online" && $0.players == "0") }) else { return }
-        guard let store = try? Store(paths: engine.paths), let db = try? store.load(),
-              ServerUpdatePolicy.shouldStart(enabled: db.automaticServerUpdates == true, installed: installedBuild, latest: latestBuild, busy: false, lastAttempt: db.lastAutomaticServerUpdateAttempt) else { return }
-        beginServerUpdate(automaticBuild: latestBuild)
+              let installedBuild,
+              let store = try? Store(paths: engine.paths), let db = try? store.load() else { return }
+        let updateRuntime = db.automaticServerUpdates == true && !versionCheckFailed && !checkingVersion && latestBuild.map { ServerVersion.updateAvailable(installed: installedBuild, latest: $0) } == true
+        let updateManagement = db.profiles.contains { ManagedServer(paths: store.servicePaths($0.id, database: db)).needsUpdate }
+        guard updateRuntime || updateManagement else { return }
+        let attempt = (updateRuntime ? latestBuild! : installedBuild) + ":" + (ManagedServer.availableVersion ?? "none")
+        guard db.lastAutomaticServerUpdateAttempt != attempt else { return }
+        beginServerUpdate(automaticBuild: attempt, managementOnly: !updateRuntime)
     }
     @objc func serverVersionClicked() {
         guard !busy, busyProfiles.isEmpty, !checkingVersion, !pendingStarts.values.contains(where: { $0.pending }) else { return }
@@ -376,16 +414,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             checkServerVersion(force: true); rebuild(); return
         }
         let alert = NSAlert(); alert.messageText = "Update the Valheim server?"
-        alert.informativeText = "Install Valve’s latest stable server build (currently \(latestBuild)). All running servers will save and stop, disconnecting players, then restart after a successful update. Your profiles and worlds are preserved."
+        alert.informativeText = "Install Valve’s latest stable server build (currently \(latestBuild)). Managed servers will receive a 15-minute countdown with warnings at 15, 10, 5 and 1 minute, then save, stop and restart after a successful update. Servers without working management must be empty. Your profiles and worlds are preserved."
         alert.addButton(withTitle: "Update Server"); alert.addButton(withTitle: "Cancel")
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         beginServerUpdate()
     }
-    func beginServerUpdate(automaticBuild: String? = nil) {
+    func beginServerUpdate(automaticBuild: String? = nil, managementOnly: Bool = false, scheduledID: String? = nil, scheduledDeadline: Date? = nil) {
         busy = true
-        serverUpdateProgress = ServerUpdateProgress(displayed.running ? .stopping : .installing, message: displayed.running ? "Saving worlds and stopping servers…" : "Preparing the server update…")
+        serverUpdateProgress = ServerUpdateProgress(.preparing, message: scheduledID == nil ? "Preparing the server update…" : "Preparing the scheduled restart…")
         rebuild()
-        serverUpdate = ServerUpdateWindow(engine: engine, automaticBuild: automaticBuild, onProgress: { [weak self] progress in
+        serverUpdate = ServerUpdateWindow(engine: engine, automaticBuild: automaticBuild, managementOnly: managementOnly, scheduledID: scheduledID, scheduledDeadline: scheduledDeadline, onProgress: { [weak self] progress in
             guard progress.phase != .preparing else { return }
             self?.serverUpdateProgress = progress
             self?.rebuild()

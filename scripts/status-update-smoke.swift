@@ -19,6 +19,18 @@ import ServerCore
         delegate.displayed.state = "Online"; delegate.displayed.players = "2"
         delegate.rebuild()
         precondition(delegate.item.button!.title == " Valheim · 2")
+        var saved: RestartSchedule?
+        var schedule = RestartSchedule(); schedule.enabled = true
+        let editor = RestartScheduleWindow(name:"Isolated Schedule Test",schedule:schedule) { saved = $0 }
+        let buttons = editor.window.contentView!.subviews.compactMap { $0 as? NSButton }
+        precondition(buttons.filter { ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].contains($0.title) }.count == 7)
+        let save = buttons.first { $0.title == "Save" }!
+        save.performClick(nil)
+        precondition(saved?.enabled == true && saved?.hour == 3)
+        let info = ServerManagementWindow(paths:Paths(),name:"Isolated Management Test")
+        precondition(info.window.contentView!.subviews.compactMap { $0 as? NSButton }.map(\.title) == ["Kick","Ban","Unban"])
+        info.window.close()
+        print("PASS: scheduled restart window opens, saves values and closes; performance/moderation window opens without crashing.")
         print("PASS: real menu-bar button changes immediately through Stopping → Updating → Starting → player count, despite stale polled state.")
     }
 }

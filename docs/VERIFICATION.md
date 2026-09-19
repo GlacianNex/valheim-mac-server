@@ -40,3 +40,21 @@ A production log exceeding 250 KB reproduced the readiness-marker loss: the serv
 Before the final player-count follow-up, all 55 automated tests and the universal build passed on macOS 15 CI. On macOS 27, an isolated native world passed two start/save/stop cycles after installation, including reload of its saved world. The release includes the latest-reported-count correction; both architecture slices retain macOS 13 as their minimum. No profile or world format migration is required.
 
 A follow-up regression covers disconnect counts of 0, 1, 10, 2, and 0 across incremental refresh, unrelated log messages, and manager relaunch. Every valid count is retained until a newer count replaces it.
+
+## Development preview 1.2.0 — management and scheduled restarts
+
+Local validation on September 19, 2026; not a published release.
+
+- 84 automated tests pass. Coverage includes local-calendar daily/interval/weekday schedules, DST gaps and repeated hours, midnight warning windows, missed occurrences, relaunch deduplication, changed-schedule claims, player policies/unknown counts, cancellation, warning failure, installation failure, per-server manual-stop precedence and maintenance locks.
+- The full 900-second warning/restart workflow is exercised with a deterministic clock: warnings at 15/10/5/1, then Stop → Install → Start. No 10-second warning and no reset of the deadline.
+- AppKit smoke checks exercise the actual status item through all update phases despite stale polled state, open/save/close the schedule editor, and open the performance/moderation window.
+- Two isolated native ARM64 servers ran concurrently on Valheim 1.0.14 (build 25364309) and 1.0.15 (build 25390671). The source-built manager companion loaded on new worlds and saved worlds. Each server had a distinct localhost-only RCON port and private credential.
+- Real RCON checks covered correct/incorrect authentication, unsupported commands, chat/center-screen warning RPCs, version/players/FPS/memory/uptime responses, synthetic-ID ban/unban with persisted profile values, and a kick request. No actual player was kicked or banned during these tests.
+- On 1.0.15 the actual scheduled-restart window ran against an isolated crossplay server using a three-second test deadline and a development-only process launcher instead of launchd. It confirmed clean world save, stop, online startup, current join code and a scheduled maintenance-log entry. The second server retained its process ID. No public server or production launch agent was changed.
+- A real SteamCMD update of the isolated 1.0.14 deployment completed, preserving every saved-world/config byte before startup. Both existing worlds then reloaded on 1.0.15 with management enabled and previous runtimes retained. The test waits for both game readiness and management readiness.
+- The signed Intel app slice and management package also passed the two-server lifecycle/RCON checks under Rosetta on Apple Silicon. This is not physical Intel hardware validation.
+- Package tests cover checksums before mutation, stable credentials/custom configuration, removal of obsolete managed DLLs, restoration of the previous runtime and blocking the rejected package/build. Recovery to vanilla hosting is available through Disable Server Management while stopped.
+- The final ZIP was extracted independently; its app launched against fresh isolated data, all management manifest hashes matched, and its signature, stapled ticket and Gatekeeper assessment passed.
+- The local universal app is Developer ID signed and notarized, including its native loader. The package contains third-party notices and the corresponding Doorstop source. Both architecture slices retain a macOS 13 minimum.
+
+Coverage limits: physical Intel hardware, macOS 13 hardware, a full multi-server login/reboot cycle, and a populated-server restart with human observers have not been repeated for this preview. Warning timing is proven with a simulated clock; the live UI test intentionally shortens its deadline. The new companion's warning RPCs were exercised on empty test servers; earlier user-observed chat/center-screen verification used the prototype RCON plugin. General mod activation remains on its separate development branch and is not included here.

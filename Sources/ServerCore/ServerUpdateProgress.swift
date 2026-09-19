@@ -1,7 +1,7 @@
 import Foundation
 
 public struct ServerUpdateProgress {
-    public enum Phase { case preparing, stopping, installing, starting }
+    public enum Phase { case countdown, preparing, stopping, installing, starting }
     public let phase: Phase
     public let message: String
     public let percent: Double?
@@ -10,7 +10,8 @@ public struct ServerUpdateProgress {
     }
     public var title: String {
         switch phase {
-        case .preparing: return "Preparing update…"
+        case .countdown: return message
+        case .preparing: return "Preparing…"
         case .stopping: return "Stopping…"
         case .starting: return "Starting…"
         case .installing:
