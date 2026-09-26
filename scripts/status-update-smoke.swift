@@ -74,7 +74,7 @@ import ServerCore
         precondition(recorder.latest(for:id,now:historyEnd.addingTimeInterval(4)) == nil)
         let historyWindow = ServerManagementWindow(paths:paths,name:"History test",recorder:recorder)
         let historyCharts = historyWindow.tabs.tabViewItems[0].view!.subviews.compactMap { $0 as? LiveMetricChart }
-        precondition(historyCharts.count == 2 && historyCharts[0].points.count >= 3600)
+        precondition(historyCharts.count == 2 && historyCharts[0].points.contains { $0.0 == historyEnd.addingTimeInterval(-1200) })
         historyWindow.window.close()
         recorder.start(paths:paths)
         wait { recorder.history(for:id).last!.time > historyEnd }
@@ -83,7 +83,7 @@ import ServerCore
         recorder.stop()
         let reopened = ServerManagementWindow(paths:paths,name:"Reopened history",recorder:recorder)
         let reopenedChart = reopened.tabs.tabViewItems[0].view!.subviews.compactMap { $0 as? LiveMetricChart }.first!
-        precondition(reopenedChart.points.count >= 3595)
+        precondition(reopenedChart.points.contains { $0.0 == historyEnd.addingTimeInterval(-1200) })
         reopened.window.close()
         let restarted = ManagementReading(version:"test",players:0,fps:30,managedMemoryBytes:100,uptimeSeconds:1,onlinePlayers:[],banned:[])
         recorder.record(restarted,for:id)
