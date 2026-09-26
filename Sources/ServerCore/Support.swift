@@ -30,7 +30,14 @@ public struct Paths {
     public func prepare() throws {
         for url in [root, stateRoot, logs] { try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700]) }
     }
-    public var isDevelopment: Bool { root != Self.defaultRoot || ProcessInfo.processInfo.environment["VSM_HOME"] != nil }
+    public var isDevelopment: Bool {
+        isDevelopment(defaultRoot:Self.defaultRoot,environmentOverride:ProcessInfo.processInfo.environment["VSM_HOME"])
+    }
+    func isDevelopment(defaultRoot: URL, environmentOverride: String?) -> Bool {
+        // Foundation adds a trailing slash when a directory starts to exist. Compare
+        // normalized paths so first-time setup cannot accidentally enable test mode.
+        root.standardizedFileURL.path != defaultRoot.standardizedFileURL.path || environmentOverride != nil
+    }
 }
 public func atomicWrite(_ data: Data, to url: URL) throws {
     try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])

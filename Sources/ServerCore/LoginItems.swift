@@ -16,7 +16,7 @@ public final class LoginItems {
     private var domain: String { "gui/\(getuid())" }
     private func plist(_ label: String) -> URL { FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/LaunchAgents/\(label).plist") }
     private func guardProduction() throws {
-        guard !paths.isDevelopment else { throw MonitorError("Login item changes are disabled when VSM_HOME is set. Test the service directly in this isolated environment.") }
+        guard !paths.isDevelopment else { throw MonitorError("Login startup is disabled in isolated development mode. This app is using a custom data location or a VSM_HOME override.") }
     }
     private func register(_ label: String, args: [String], keepAlive: Bool) throws {
         try guardProduction()

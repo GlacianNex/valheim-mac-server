@@ -83,3 +83,11 @@ New servers automatically get management support on first start. Existing server
 Management package upgrades ship with compatible manager updates. Before replacing a package the manager retains its previous runtime and preserves credentials/configuration; failed startup blocks repeated retries and restores that runtime when available. It leaves the server stopped for inspection. World saves remain separate. Check the server’s error and logs before retrying. If you need to host while investigating, clear **Enable management tools (BepInEx + RCON)** in **Server Management → Performance & Tools** while stopped and start the native server without management plugins. The preserved world remains in place; automatic restarts then require the server to be empty.
 
 Performance graphs retain the last hour of one-second readings while the manager is running, even with all management windows closed. Reopening a window shows that server’s history. History is held in memory and clears when the manager exits. Gridlines show values; the horizontal axis shows local time. Missing readings and server restarts appear as gaps.
+
+## Login startup reports isolated development mode
+
+In 1.2.4 and earlier, first-time setup can incorrectly show “Login item changes are disabled when VSM_HOME is set” even when no override is set. Creating the normal data directory changes Foundation's directory URL representation, which the old isolation check mistakes for a different location.
+
+Quit the manager, reopen it from Applications, then try **Open Manager at Login** again. Quitting the manager leaves running servers running. The source fix compares normalized paths and is intended for the next app release.
+
+If the message persists after reopening, check whether you intentionally launched with a custom `VSM_HOME`. Keep a record of that location before changing it: reopening without the override uses the normal data directory and does not move any existing profiles or saves.
