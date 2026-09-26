@@ -63,9 +63,11 @@ try:
   id=ctl('save-profile',data=form);ids.append(id)
  db=json.loads((root/'profiles.json').read_text())
  assert all(db['managedServers'][id] for id in ids)
+ db['managedServers'].pop(ids[0]) # Simulate a pre-management deployment.
  db['profileAutostart']={id:True for id in ids};(root/'profiles.json').write_text(json.dumps(db))
  for id in ids:start(id)
  states=[ready(id) for id in ids]
+ assert all(json.loads((root/'profiles.json').read_text())['managedServers'][id] for id in ids)
  records=[json.loads((scoped(id)/'running.json').read_text()) for id in ids]
  endpoints=[json.loads((root/'management'/id/'runtime/BepInEx/config/manager-rcon-endpoint.json').read_text()) for id in ids]
  assert endpoints[0]['port']!=endpoints[1]['port']
@@ -74,6 +76,7 @@ try:
   assert '127.0.0.1:'+str(e['port']) in l
  for id in ids:
   info=json.loads(ctl('management-info',id));assert info['players']==0 and info['fps']>0 and info['managedMemoryBytes']>0
+  assert info['onlinePlayers']==[] and isinstance(info['banned'],list)
   for minutes in [15,10,5,1]:
    msg=f'Isolated acceptance test: scheduled restart warning {minutes}m.'
    assert rpc(id,'say '+msg)=='OK';assert rpc(id,'showMessage '+msg)=='OK'

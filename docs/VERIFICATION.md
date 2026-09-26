@@ -58,3 +58,25 @@ Local validation on September 19, 2026; not a published release.
 - The local universal app is Developer ID signed and notarized, including its native loader. The package contains third-party notices and the corresponding Doorstop source. Both architecture slices retain a macOS 13 minimum.
 
 Coverage limits: physical Intel hardware, macOS 13 hardware, a full multi-server login/reboot cycle, and a populated-server restart with human observers have not been repeated for this preview. Warning timing is proven with a simulated clock; the live UI test intentionally shortens its deadline. The new companion's warning RPCs were exercised on empty test servers; earlier user-observed chat/center-screen verification used the prototype RCON plugin. General mod activation remains on its separate development branch and is not included here.
+
+### Local 1.2.0 preview 2 — management window
+
+- The isolated AppKit smoke test exercises the real management window: immediate checked/unchecked automatic-update feedback and persisted values, management tools on/off, schedule saving inside the Automation tab, disabled offline moderation, and the reduced server submenu.
+- Scheduled-restart and automatic-update policy tests: 10 passed. Existing menu-bar transition and schedule-editor smoke checks also passed.
+- All UI tests use a temporary `VSM_HOME`; no production server is started, stopped, or reconfigured.
+- The automatic-update explanation now identifies the official Valheim dedicated server and uses separate tooltip paragraphs. Manual Refresh Status was removed; polling remains automatic.
+
+- Performance smoke checks cover one-hour retention, server isolation, sampling with management windows closed, reopening history, stale reading expiry, and gaps across restarts.
+
+## Release 1.2.4
+
+Validation on September 26, 2026:
+
+- 85 automated tests passed, including stopped-only default management installation, service-lock exclusion, explicit opt-out preservation, failed-install retry, unchanged world bytes/settings, and migration before a legacy server starts.
+- AppKit checks passed for one-hour per-server retention, independent one-second collection with windows closed, reopening history, stale readings, restart gaps, management tabs, moderation selection, message availability and immediate automatic-update checkmarks.
+- Two isolated native worlds tested the signed release app on Valheim 1.0.15. One profile deliberately had no management preference, matching an older deployment; its tools were installed automatically before startup. The other used the new-server default.
+- Native tests cover distinct localhost-only endpoints, correct/incorrect authentication, empty player/banned lists, warning RPCs, live metrics, persisted synthetic ban/unban, clean save/restart, stable credentials and the second server remaining online with its original PID. Test worlds are disposable; production servers are not used.
+- The native check caught collection fields missing from Unity's serialization of plugin data. The companion now uses managed JSON serialization; the checks passed with the corrected package.
+- The universal release is Developer ID signed and Apple-notarized. Signature, Gatekeeper and package-manifest checks are performed on a separately extracted ZIP before publication.
+
+The hardware and human-observed warning limitations above still apply. Chart history is session-local, not a persistent audit log. General community mod browsing/import remains excluded.

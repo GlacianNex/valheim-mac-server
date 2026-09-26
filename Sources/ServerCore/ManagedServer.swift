@@ -128,6 +128,17 @@ public final class ManagedServer {
         }
         return response
     }
+    public func broadcast(_ text: String) throws {
+        let message = text.trimmingCharacters(in:.whitespacesAndNewlines)
+        guard !message.isEmpty, message.count <= 500, !message.contains("\n"), !message.contains("\r"), !message.contains("\0") else {
+            throw MonitorError("Enter one line of text, up to 500 characters.")
+        }
+        let client = try connection()
+        for command in ["say " + message, "showMessage " + message] {
+            let response = try client.send(command)
+            guard response == "OK" else { throw MonitorError(response) }
+        }
+    }
     public func warn(minutes: Int, managementOnly: Bool = false, scheduled: Bool = false) throws {
         let client = try connection()
         guard try client.send("health").hasPrefix("OK ManagerRcon") else { throw MonitorError("Management health check failed.") }

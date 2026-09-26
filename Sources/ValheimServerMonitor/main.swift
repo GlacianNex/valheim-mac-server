@@ -18,8 +18,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var scheduleChecking = false
     var lastScheduleCheck = Date.distantPast
     var timer: Timer?
+    var lastManagementMigration = Date.distantPast
     var busy = false
     var refreshing = false
+    var pendingAutomaticServerUpdates: Bool?
     var startFeedback = StartFeedback()
     var pendingStarts: [String: StartFeedback] = [:]
     var busyProfiles: Set<String> = []
@@ -39,6 +41,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var serverUpdate: ServerUpdateWindow?
     var setup: SetupWindow?
     let engine = Engine()
+    let performanceRecorder = PerformanceRecorder()
     var displayed = ServerStatusPlaceholder()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -48,6 +51,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     private func finishLaunching() {
+        performanceRecorder.start(paths:engine.paths)
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         rebuild()
         refresh()
@@ -56,8 +60,37 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let statusTimer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in self?.refresh() }
         RunLoop.main.add(statusTimer, forMode: .common)
         timer = statusTimer
-        if let index = CommandLine.arguments.firstIndex(of: "--resume-after-update") {
-            perform("resume-after-update", args: Array(CommandLine.arguments.dropFirst(index + 1)))
+        let resume = CommandLine.arguments.firstIndex(of:"--resume-after-update").map { Array(CommandLine.arguments.dropFirst($0+1)) }
+        prepareManagementDefaults(force:true) { [weak self] in
+            if let resume { self?.perform("resume-after-update",args:resume) }
+        }
+    }
+    func prepareManagementDefaults(force: Bool = false, completion: (() -> Void)? = nil) {
+        guard !busy, busyProfiles.isEmpty, serverUpdate == nil,
+              force || Date().timeIntervalSince(lastManagementMigration) >= 30 else { completion?(); return }
+        lastManagementMigration = Date()
+        guard let store = try? Store(paths:engine.paths), let db = try? store.load(),
+              FileManager.default.isExecutableFile(atPath:engine.paths.executable.path) else { completion?(); return }
+        let candidates = db.profiles.filter { db.managedServers?[$0.id] == nil }
+        guard !candidates.isEmpty else { completion?(); return }
+        busy = true; rebuild()
+        DispatchQueue.global(qos:.utility).async {
+            for profile in candidates {
+                let paths = store.servicePaths(profile.id,database:db)
+                do {
+                    if try ManagementDefaults.installWhileStopped(paths:paths) {
+                        if (try? String(contentsOf:paths.file("last-error.txt"),encoding:.utf8))?.hasPrefix("Management tools installation failed:") == true {
+                            try? FileManager.default.removeItem(at:paths.file("last-error.txt"))
+                        }
+                    }
+                } catch {
+                    try? atomicWrite(Data(("Management tools installation failed: " + error.localizedDescription).utf8),to:paths.file("last-error.txt"))
+                }
+            }
+            DispatchQueue.main.async {
+                self.busy = false; self.statusGeneration += 1
+                completion?(); self.refresh()
+            }
         }
     }
     func command(_ action: String, args: [String] = [], input: Data? = nil) -> (Int32, String) {
@@ -94,6 +127,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     if alert.runModal() == .alertFirstButtonReturn { self.openLog() }
                 }
                 self.rebuild()
+                self.prepareManagementDefaults()
                 self.maybeAutomaticallyUpdateServer()
                 self.checkSchedules()
             }
@@ -156,7 +190,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if managerAvailable { menu.items.last?.image = updateBadge }
         menu.items.last?.toolTip = managerAvailable
             ? "Update manager to \(managerRelease!.version). Clicking downloads, verifies, and installs it automatically. Running servers save and stop, then restart after the update. Worlds and settings are preserved."
-            : "Valheim Server Manager for Mac. Checks for manager updates on launch and every six hours. Refresh Status checks again."
+            : "Valheim Server Manager for Mac. Checks for manager updates on launch and every six hours."
         menu.addItem(.separator())
         if serverUpdateAvailable {
             add(menu, serverUpdateProgress?.title ?? "Update Valheim Server…", #selector(serverVersionClicked), enabled: !busy && busyProfiles.isEmpty && !checkingVersion && !starting && !stopping)
@@ -180,30 +214,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             serverMenu.addItem(.separator())
             action(serverStarting ? "Starting Server…" : "Start Server", #selector(startProfile(_:)), enabled: !serverBusy && !serverActive && server.installed)
             action("Stop Server (Save & Stop)", #selector(stopProfile(_:)), enabled: !serverBusy && server.running)
-            action(serverActive ? "View Settings…" : "Edit Server…", #selector(profileSettings(_:)), enabled: !serverBusy)
-            action("Scheduled Restart…", #selector(scheduleSettings(_:)), enabled: !serverBusy)
-            if let db = try? Store(paths:engine.paths).load(), let schedule = db.restartSchedules?[server.selected], schedule.enabled {
-                let waiting = db.restartReceipts?[server.selected]?.state == "waiting"
-                let formatter = DateFormatter(); formatter.dateStyle = .short; formatter.timeStyle = .short
-                let next = schedule.next(after:Date()).map { formatter.string(from:$0) } ?? "unavailable"
-                add(serverMenu, waiting ? "Scheduled restart: waiting for empty server" : "Next restart: " + next)
-                serverMenu.items.last?.toolTip = "Local time: " + TimeZone.current.identifier + ". Requires the manager to stay open."
-            }
-            action("Automatically Start at Login", #selector(profileAutostart(_:)), enabled: !serverBusy)
-            serverMenu.items.last?.state = server.autostart ? .on : .off
-            serverMenu.addItem(.separator())
-            if server.managementEnabled == true {
-                action("Performance & Moderation…", #selector(openManagement(_:)), enabled: server.running && !serverStarting)
-                action("Disable Server Management", #selector(disableManagement(_:)), enabled: !serverBusy && !serverActive)
-                serverMenu.items.last?.toolTip = "Run the native server without BepInEx/RCON. Warnings and moderation are unavailable; automatic restarts wait for an empty server."
-            } else {
-                action("Enable Server Management", #selector(enableManagement(_:)), enabled: !serverBusy && !serverActive)
-            }
-            action("Open Server Log", #selector(profileLog(_:)))
-            action("Open Logs Folder", #selector(profileFolder(_:)))
-            if !server.detail.isEmpty { action("Show Last Server Error…", #selector(profileError(_:))) }
-            serverMenu.addItem(.separator())
-            action("Delete Server…", #selector(deleteProfile(_:)), enabled: !serverBusy && !serverActive)
+            action("Server Management…", #selector(openManagement(_:)))
             let row = NSMenuItem(title: "\(server.profileName) — \(pending ? "Starting…" : server.state) · \(playerSummary)", action: nil, keyEquivalent: "")
             row.submenu = serverMenu; row.isEnabled = true
             row.toolTip = "Player count is the last count reported in this server's log."
@@ -221,9 +232,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             add(menu, "Valheim Server Build \(installedBuild) — \(suffix)")
         } else { add(menu, "Valheim Server Build: not installed or unavailable") }
         menu.items.last?.toolTip = "The installed Valheim server software is shared by all servers listed above."
-        add(menu, "Automatically Update Valheim Server", #selector(toggleAutomaticServerUpdates), enabled: !busy)
-        menu.items.last?.state = displayed.automaticServerUpdates == true ? .on : .off
-        menu.items.last?.toolTip = "Checks every 10 minutes while the manager is open. Managed servers receive warnings at 15, 10, 5 and 1 minute before saving, stopping, updating and restarting. Servers without working management must be empty. Off by default."
+        add(menu, "Automatically Update All Valheim Servers", #selector(toggleAutomaticServerUpdates(_:)), enabled: !busy)
+        menu.items.last?.state = (pendingAutomaticServerUpdates ?? displayed.automaticServerUpdates ?? false) ? .on : .off
+        menu.items.last?.toolTip = ManagementHelp.automaticUpdates
         menu.addItem(.separator())
         if !displayed.installed {
             add(menu, "Set Up Native Server…", #selector(showSetup), enabled: !busy && !active)
@@ -233,12 +244,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         add(menu, "Open Manager at Login", #selector(toggleMonitorLogin), enabled: !busy)
         menu.items.last?.state = displayed.monitorAtLogin ? .on : .off
         menu.addItem(.separator())
-        add(menu, "Refresh Status", #selector(refreshNow))
-        menu.addItem(.separator())
         add(menu, "Quit Manager (Servers Keep Running)", #selector(quit), enabled: !busy)
         item.menu = menu
     }
-    func perform(_ action: String, args: [String] = []) {
+    func perform(_ action: String, args: [String] = [], completion: ((Bool) -> Void)? = nil) {
         guard !busy else { return }
         if action == "start" || action == "resume-after-update" {
             guard !startFeedback.pending else { return }
@@ -250,6 +259,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let result = self.command(action, args: args)
             DispatchQueue.main.async {
                 self.busy = false
+                completion?(result.0 == 0)
                 if action == "start" || action == "resume-after-update" {
                     self.startFeedback.commandFinished(success: result.0 == 0)
                     self.statusGeneration += 1
@@ -273,6 +283,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let result = self.command(action, args: [id])
             DispatchQueue.main.async {
                 self.busyProfiles.remove(id)
+                if action == "delete-server", result.0 == 0, self.managementWindow?.window.identifier?.rawValue == id { self.managementWindow?.window.close() }
                 if action == "start" { self.pendingStarts[id]?.commandFinished(success: result.0 == 0) }
                 self.statusGeneration += 1; self.rebuild(); self.refresh()
                 if result.0 != 0 { let alert = NSAlert(); alert.messageText = "Server needs attention"; alert.informativeText = result.1; alert.runModal() }
@@ -304,7 +315,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func openManagement(_ sender: NSMenuItem) {
         guard let paths = pathsForServer(sender), let server = server(sender) else { return }
         managementWindow?.window.close()
-        managementWindow = ServerManagementWindow(paths: paths, name: server.profileName)
+        managementWindow = ServerManagementWindow(paths:paths, name:server.profileName, recorder:performanceRecorder,
+            isBusy: { [weak self] in self?.busy == true || self?.busyProfiles.contains(server.selected) == true || self?.pendingStarts[server.selected]?.pending == true },
+            changed: { [weak self] in self?.statusGeneration += 1; self?.lastScheduleCheck = .distantPast; self?.refresh() },
+            settings: { [weak self] in
+                guard let self, !self.busy, !self.busyProfiles.contains(server.selected) else { return }
+                self.showEditor("get-profile", profileID:server.selected, readOnly:Lifecycle(paths:paths).isActive || self.pendingStarts[server.selected]?.pending == true)
+            },
+            delete: { [weak self] in
+                guard let self, !self.busy, !self.busyProfiles.contains(server.selected), !Lifecycle(paths:paths).isActive, self.pendingStarts[server.selected]?.pending != true else { return }
+                self.deleteProfile(sender)
+            })
     }
     @objc func disableManagement(_ sender: NSMenuItem) {
         guard let server = server(sender) else { return }
@@ -391,8 +412,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
     }
-    @objc func toggleAutomaticServerUpdates() {
-        perform(displayed.automaticServerUpdates == true ? "automatic-server-updates-off" : "automatic-server-updates-on")
+    @objc func toggleAutomaticServerUpdates(_ sender: NSMenuItem) {
+        guard !busy else { return }
+        let previous = displayed.automaticServerUpdates ?? false
+        let enabled = !previous
+        pendingAutomaticServerUpdates = enabled; sender.state = enabled ? .on : .off; statusGeneration += 1
+        perform(enabled ? "automatic-server-updates-on" : "automatic-server-updates-off") { success in
+            self.statusGeneration += 1
+            self.pendingAutomaticServerUpdates = nil
+            self.displayed.automaticServerUpdates = success ? enabled : previous
+            sender.state = self.displayed.automaticServerUpdates == true ? .on : .off
+        }
     }
     func maybeAutomaticallyUpdateServer() {
         guard !busy, busyProfiles.isEmpty,

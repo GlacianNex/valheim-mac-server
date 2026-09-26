@@ -172,6 +172,7 @@ public final class Lifecycle {
         let console = paths.logs.appendingPathComponent("console-\(session).log")
         FileManager.default.createFile(atPath: console.path, contents: nil, attributes: [.posixPermissions: 0o600])
         let handle = try FileHandle(forWritingTo: console); defer { try? handle.close() }
+        try ManagementDefaults.installBeforeLaunch(paths:paths)
         let management = ManagedServer(paths: paths)
         if management.enabled { try management.prepare() }
         let launchExecutable = management.enabled ? management.executable : paths.executable

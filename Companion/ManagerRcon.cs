@@ -2,15 +2,18 @@ using BepInEx;
 using System;
 using System.Collections.Concurrent;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Runtime.Serialization;
+using System.Runtime.Serialization.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 
 // Manager-owned management bridge. No gameplay patches or gameplay-editing commands.
-[BepInPlugin("io.github.glaciannex.manager.rcon", "Manager RCON", "1.0.0")]
+[BepInPlugin("io.github.glaciannex.manager.rcon", "Manager RCON", "1.1.0")]
 public sealed class ManagerRcon : BaseUnityPlugin
 {
     private TcpListener listener;
@@ -113,15 +116,17 @@ public sealed class ManagerRcon : BaseUnityPlugin
     private string Execute(string command)
     {
         if (ZNet.instance == null || !ZNet.instance.IsServer() || ZRoutedRpc.instance == null) return "ERROR: Server is not ready";
-        if (command == "health") return "OK ManagerRcon 1.0.0";
+        if (command == "health") return "OK ManagerRcon 1.1.0";
         if (command == "players") return "Online " + ZNet.instance.GetPlayerList().Count;
-        if (command == "banned") return JsonUtility.ToJson(new BanInfo { entries = ZNet.instance.Banned.ToArray() });
+        if (command == "banned") return Serialize(new BanInfo { entries = ZNet.instance.Banned.ToArray() });
         if (command == "serverInfo")
         {
-            return JsonUtility.ToJson(new ServerInfo {
+            return Serialize(new ServerInfo {
                 version = global::Version.GetVersionString(), players = ZNet.instance.GetPlayerList().Count,
                 fps = frameSeconds > 0 ? 1f / frameSeconds : 0,
-                managedMemoryBytes = GC.GetTotalMemory(false), uptimeSeconds = Time.realtimeSinceStartup
+                managedMemoryBytes = GC.GetTotalMemory(false), uptimeSeconds = Time.realtimeSinceStartup,
+                onlinePlayers = ZNet.instance.GetPeers().Where(p => p.IsReady() && !p.m_server).Select(Player).ToArray(),
+                banned = ZNet.instance.Banned.ToArray()
             });
         }
         if (command.StartsWith("kick ")) { ZNet.instance.Kick(command.Substring(5)); return "OK: Kick requested"; }
@@ -140,13 +145,27 @@ public sealed class ManagerRcon : BaseUnityPlugin
         }
         return "ERROR: Unsupported command";
     }
-    [Serializable] private class BanInfo { public string[] entries; }
-    [Serializable] private class ServerInfo {
-        public string version;
-        public int players;
-        public float fps;
-        public long managedMemoryBytes;
-        public float uptimeSeconds;
+    // Unity's native serializer can omit collection fields on injected plugin types.
+    // Use the managed serializer so empty and populated arrays have the same schema.
+    private static string Serialize<T>(T value) {
+        using (var stream = new MemoryStream()) {
+            new DataContractJsonSerializer(typeof(T)).WriteObject(stream, value);
+            return Encoding.UTF8.GetString(stream.ToArray());
+        }
+    }
+    private static PlayerInfo Player(ZNetPeer peer) {
+        return new PlayerInfo { name = peer.m_playerName, id = peer.m_socket.GetHostName() };
+    }
+    [DataContract] private class PlayerInfo { [DataMember] public string name; [DataMember] public string id; }
+    [DataContract] private class BanInfo { [DataMember] public string[] entries; }
+    [DataContract] private class ServerInfo {
+        [DataMember] public string version;
+        [DataMember] public PlayerInfo[] onlinePlayers;
+        [DataMember] public string[] banned;
+        [DataMember] public int players;
+        [DataMember] public float fps;
+        [DataMember] public long managedMemoryBytes;
+        [DataMember] public float uptimeSeconds;
     }
     private void OnDestroy()
     {

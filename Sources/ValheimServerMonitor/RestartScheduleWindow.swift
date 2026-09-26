@@ -1,8 +1,8 @@
 import AppKit
 import ServerCore
 
-final class RestartScheduleWindow: NSObject {
-    let window: NSWindow
+final class RestartScheduleEditor: NSObject {
+    let view = NSView(frame: NSRect(x:0,y:0,width:560,height:420))
     private let enabled = NSButton(checkboxWithTitle: "Scheduled restart", target: nil, action: nil)
     private let frequency = NSPopUpButton()
     private let interval = NSTextField(string: "2")
@@ -13,12 +13,9 @@ final class RestartScheduleWindow: NSObject {
     private let error = NSTextField(wrappingLabelWithString: "")
     private var value: RestartSchedule
     private let save: (RestartSchedule) throws -> Void
-    init(name: String, schedule: RestartSchedule, save: @escaping (RestartSchedule) throws -> Void) {
+    init(schedule: RestartSchedule, save: @escaping (RestartSchedule) throws -> Void) {
         value = schedule; self.save = save
-        window = NSWindow(contentRect:NSRect(x:0,y:0,width:560,height:420), styleMask:[.titled,.closable],backing:.buffered,defer:false)
         super.init()
-        window.title = name + " — Scheduled Restart"; window.isReleasedWhenClosed = false
-        let view = window.contentView!
         func label(_ text: String, _ y: CGFloat) { let l = NSTextField(labelWithString:text); l.frame = NSRect(x:24,y:y,width:150,height:24); view.addSubview(l) }
         enabled.frame = NSRect(x:24,y:375,width:250,height:24); enabled.state = schedule.enabled ? .on : .off; view.addSubview(enabled)
         label("Frequency",330); frequency.frame = NSRect(x:180,y:325,width:240,height:30)
@@ -36,7 +33,7 @@ final class RestartScheduleWindow: NSObject {
         error.frame = NSRect(x:24,y:50,width:390,height:40); error.textColor = .systemRed; view.addSubview(error)
         let button = NSButton(title:"Save",target:self,action:#selector(saveClicked)); button.frame = NSRect(x:435,y:20,width:100,height:32); view.addSubview(button)
         for control: NSControl in [enabled,frequency,interval,time,players] + days { control.target = self; control.action = #selector(changed) }
-        changed(); window.center(); window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps:true)
+        changed()
     }
     private func read() -> RestartSchedule {
         var s = value; s.enabled = enabled.state == .on; s.frequency = RestartSchedule.Frequency.allCases[frequency.indexOfSelectedItem]
@@ -51,7 +48,21 @@ final class RestartScheduleWindow: NSObject {
         next.stringValue = (s.next(after:Date()).map { "Next: " + formatter.string(from:$0) + " (" + TimeZone.current.identifier + ")\n" } ?? "Schedule disabled.\n") + "Keep the manager open for scheduled restarts. Stopped servers stay stopped."
     }
     @objc private func saveClicked() {
-        do { let s = read(); try s.validate(); try save(s); window.close() }
-        catch { self.error.stringValue = error.localizedDescription }
+        do { let s = read(); try s.validate(); try save(s); value = s; error.textColor = .secondaryLabelColor; error.stringValue = "Schedule saved."; changed() }
+        catch { self.error.textColor = .systemRed; self.error.stringValue = error.localizedDescription }
+    }
+}
+
+final class RestartScheduleWindow: NSObject {
+    let window: NSWindow
+    private let editor: RestartScheduleEditor
+    init(name: String, schedule: RestartSchedule, save: @escaping (RestartSchedule) throws -> Void) {
+        let window = NSWindow(contentRect:NSRect(x:0,y:0,width:560,height:420), styleMask:[.titled,.closable],backing:.buffered,defer:false)
+        self.window = window
+        editor = RestartScheduleEditor(schedule:schedule) { value in try save(value); window.close() }
+        super.init()
+        window.title = name + " — Scheduled Restart"; window.isReleasedWhenClosed = false
+        window.contentView = editor.view
+        window.center(); window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps:true)
     }
 }

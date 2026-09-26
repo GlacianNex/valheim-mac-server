@@ -32,5 +32,5 @@ shutil.copytree('Companion/licenses',out/'licenses')
 shutil.copy2(cache/'doorstop-source.tar.gz',out/'UnityDoorstop-source-v4.5.0.tar.gz')
 (out/'SOURCES.txt').write_text('BepInEx: https://github.com/bbauti/BepInEx/commit/105b4f06d16b23d221cde22062e48d3c0fb9a9dd\nUnityDoorstop: https://github.com/NeighTools/UnityDoorstop/releases/tag/v4.5.0\nManagerRcon: Companion/ in this manager source repository, MIT\n')
 files={str(p.relative_to(out)):hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(out.rglob('*')) if p.is_file() and p.name!='manifest.json'}
-(out/'manifest.json').write_text(json.dumps({'version':'1.0.0','files':files},indent=2))
+(out/'manifest.json').write_text(json.dumps({'version':'1.1.0','files':files},indent=2))
 PY
