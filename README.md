@@ -2,7 +2,7 @@
 
 Host Valheim worlds for your friends from your Mac. This native macOS menu bar app downloads the dedicated server, creates or imports worlds, and runs multiple servers without leaving a terminal open.
 
-**[Download for Mac](https://github.com/GlacianNex/valheim-mac-server/releases/latest)** · [What's new in 1.2.4](docs/releases/1.2.4.md) · [Setup and recovery](docs/SETUP.md)
+**[Download for Mac](https://github.com/GlacianNex/valheim-mac-server/releases/latest)** · [What's new in 1.2.5](docs/releases/1.2.5.md) · [Setup and recovery](docs/SETUP.md)
 
 Requires **macOS 13 Ventura or later**. The download includes Apple Silicon and Intel binaries and is Developer ID signed and Apple-notarized. No running Steam client, Steam account, CrossOver or separate plugin installation is needed.
 

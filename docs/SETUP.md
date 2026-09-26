@@ -88,6 +88,6 @@ Performance graphs retain the last hour of one-second readings while the manager
 
 In 1.2.4 and earlier, first-time setup can incorrectly show “Login item changes are disabled when VSM_HOME is set” even when no override is set. Creating the normal data directory changes Foundation's directory URL representation, which the old isolation check mistakes for a different location.
 
-Quit the manager, reopen it from Applications, then try **Open Manager at Login** again. Quitting the manager leaves running servers running. The source fix compares normalized paths and is intended for the next app release.
+Quit the manager, reopen it from Applications, then try **Open Manager at Login** again. Quitting the manager leaves running servers running. Version 1.2.5 fixes this by comparing normalized paths. Update the manager to avoid the first-launch error.
 
 If the message persists after reopening, check whether you intentionally launched with a custom `VSM_HOME`. Keep a record of that location before changing it: reopening without the override uses the normal data directory and does not move any existing profiles or saves.
