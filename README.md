@@ -1,104 +1,115 @@
 # Valheim Server Manager for Mac
 
-Host a Valheim dedicated server on your Mac. This native macOS menu bar app installs the server, creates or imports worlds, and manages hosting in the background without keeping a terminal open.
+Host Valheim worlds for your friends from your Mac. This native macOS menu bar app downloads the dedicated server, creates or imports worlds, and runs multiple servers without leaving a terminal open.
 
-**Requires macOS 13 Ventura or later.** The download includes Apple Silicon and Intel Mac binaries. Runtime testing is currently on Apple Silicon; Intel hardware validation is still pending. Allow at least 6 GB for setup, plus space for each server’s managed runtime and its rollback copy. APFS clones reduce physical disk use when available. The hosting app is for macOS only.
+**[Download for Mac](https://github.com/GlacianNex/valheim-mac-server/releases/latest)** · [What's new in 1.2.4](docs/releases/1.2.4.md) · [Setup and recovery](docs/SETUP.md)
 
-**Version 1.2.4** adds automatic management-tool setup for existing servers, scheduled restarts, player messaging and moderation, and one-hour performance graphs. [Full release notes](docs/releases/1.2.4.md).
+Requires **macOS 13 Ventura or later**. The download includes Apple Silicon and Intel binaries and is Developer ID signed and Apple-notarized. No running Steam client, Steam account, CrossOver or separate plugin installation is needed.
 
-[Download for Mac](https://github.com/GlacianNex/valheim-mac-server/releases/latest) · [Mac setup and recovery](docs/SETUP.md) · [Development](CONTRIBUTING.md)
+## What it does
 
-<img src="docs/images/server-manager-menu-1.1.5.png" alt="Illustrated preview of the Valheim Server Manager for Mac 1.1.5 menu with a server update available" width="680">
+- **Create and import worlds.** Choose a seed, adjust world settings, or import a copy of an existing save. Imported settings and seeds are visible in the manager.
+- **Run multiple servers.** Each has its own world, ports, logs, player status and startup settings.
+- **Schedule restarts.** Pick a local time and daily, every-N-days or weekday schedules. Warn players, wait until empty, or skip an occupied server.
+- **Manage players.** See connected players, select someone to kick or ban, review bans, and send messages to everyone on a server.
+- **Watch performance.** One-hour graphs show gameplay loop update frequency and managed memory, sampled every second.
+- **Keep servers current.** Get notified about official Valheim updates or enable automatic updates with player warnings and a save/stop/update/restart sequence.
 
-*Illustrated preview of version 1.1.5 with a server update available.*
+## Get started
 
-## Getting started on your Mac
+1. Download and unzip **Valheim-Server-Manager-for-Mac.zip**. Open the app and let it copy itself into Applications, or drag it there yourself. macOS may show its normal first-open confirmation.
+2. In the setup window, choose **Install Native Server**. The app downloads the server from Valve. On Apple Silicon, Valve's download tool may need Rosetta; the app asks before installing it. The game server itself runs natively.
+3. Choose **New Server…**. Give it a name, optionally set a world seed or import a save, and choose whether to **List my server**. Listed servers require a password; unlisted servers can have an empty password. A blank seed creates a random world.
+4. Hover over the server in the menu and choose **Start Server**. Once it is online, copy its join code to share with friends.
 
-1. Download and unzip **Valheim-Server-Manager-for-Mac.zip**. Open the app and let it copy itself into Applications (or drag it there in Finder).
-2. Choose **Install Native Server**. The app downloads the server directly from Valve; no Steam account, running Steam client, Python, or CrossOver is required. On Apple Silicon, Valve's installer may need a one-time Rosetta installation, which the app asks you to approve. The server runs natively on Apple Silicon.
-3. Choose **New Server…**, set a server name, choose whether to **List my server**, and save. Listed servers require a password; unlisted servers can use an empty password. Hover over that server in the menu bar to start it or view its settings.
+Crossplay is enabled by default and uses Valheim's relay networking. Steam-only hosting requires forwarding the chosen UDP port and the next port on your router. Each simultaneous server needs its own unused port pair.
 
-Crossplay is enabled by default, using Valheim's relay networking. The app displays the join code when the server reports one. Steam-only hosting requires forwarding the chosen UDP port and the next port on your router. The manager cannot change your router configuration.
+Allow at least **6 GB** for setup, plus space for world saves, each managed server's runtime and its rollback copy. APFS clones reduce physical disk use where available.
 
-macOS may show its normal first-open confirmation for an app downloaded from the internet.
+## Server Management
 
-Choose an optional **World seed** when creating a new server, or leave it blank for random generation. Existing and imported worlds show their saved seed read-only in settings.
+Open a server's submenu and choose **Server Management…**. The menu stays compact; the window contains:
 
-## Included
+- **Performance & Tools:** game version, uptime, performance graphs and management-tool controls.
+- **Automation:** start that server at login and configure scheduled restarts. The next scheduled restart is also shown in Performance & Tools.
+- **Players & Moderation:** connected players, saved bans and confirmation-based Kick, Ban and Unban controls. Ban changes persist across restarts.
+- **Messages:** send a chat message from **Server** and a center-screen notification to everyone connected to that server.
 
-- Automatic native server download and optional automatic server updates, with installation progress and retry.
-- An available server update adds a yellow **!** badge to the menu bar and an **Update Valheim Server…** action at the top of the menu. Servers keep running until you approve the update, unless you enable automatic server updates.
-- The menu shows the installed server's Steam build and checks Valve's stable release on launch and every 10 minutes while hosting continues. Click an available update to save, stop, update, and restart the servers that were running.
-- **Automatically Update All Valheim Servers** is off by default. When enabled, a new stable build starts a 15-minute warning countdown, then triggers save → stop → update → restart. The countdown can be cancelled. Servers without working management support must report zero players; unknown counts block their updates. The manager must be open. Managed servers receive chat and center-screen warnings at 15, 10, 5 and 1 minute before an update. A failed automatic attempt is not repeated for the same build—retry manually, or turn the option off and on.
-- Per-server **Server Management… → Automation** supports daily, every-N-days and weekday schedules in local time. Choose warnings, skip when occupied, or wait until empty. The manager must remain open; stopped servers stay stopped. The next run appears in each server’s menu. Restarts save worlds and refresh join codes; `logs/maintenance.log` records their reason and outcome.
-- **Server Management…** shows performance graphs and connected players, with confirmed kick/ban/unban controls. Ban changes persist across restarts.
-- During server updates, the menu bar immediately shows **Stopping → Updating → Starting**, including update percentage when reported. The progress window shows the current operation and elapsed stage time.
-- The manager checks GitHub for stable app updates on launch and every six hours. Its top menu line stays grey with **Up to date**, or becomes clickable with **Update Available**. Clicking downloads and verifies the signed, notarized app, saves and stops running servers, installs the update, and reopens the manager. Previously running servers and those with auto-start enabled restart afterward. **Refresh Status** also checks for manager updates.
-- To update manually, open a newer downloaded app and choose **Update & Open** to replace the installed manager while preserving profiles and worlds. If hosting, **Save, Stop & Update** saves and stops all running servers first. After a successful app update, each server starts if its auto-start setting is enabled or it was running before the update.
-- Intel and Apple Silicon app binaries; macOS 13 or later.
-- Multiple servers can run simultaneously, each with separate world files, logs, status, and startup preferences. New servers default to different UDP port pairs; conflicting active ports are rejected.
-- Copy-only imports of a one-world ZIP, modern world folder, or legacy `.db` with matching `.fwl`.
-- World presets, modifiers, saving/backup settings, and admin/ban/allow lists, with underlined hover help.
-- Each server has a compact submenu with Start/Stop, join-code copy and **Server Management…**. Settings, login startup, logs and confirmed deletion live in the management window. Deleted saves/settings are retained in a recovery folder.
-- Imported world settings are displayed from the latest completed save without becoming launch overrides.
-- Status light and last-reported player counts.
-- Graceful Save & Stop; the app does not force-kill a server after a save timeout.
-- Separate settings for opening the manager and starting each server at login. Running server settings remain viewable in read-only mode.
-- An idle-sleep assertion while hosting. Closing a laptop lid or logging out can still stop hosting.
+The same window has buttons for server settings, logs and deletion. Settings remain viewable while a server runs, but editing requires stopping it. Deleted worlds and settings are kept in a recovery folder.
 
-## How it works
+<img src="docs/images/server-performance-1.2.4.png" alt="Performance graphs with continuous lines, numbered gridlines and local timestamps spanning one hour" width="680">
 
-The app and background service are Swift executables built from this repository; there are no third-party Swift package dependencies. The runtime and worlds are separate from the app bundle:
+*Performance graphs in 1.2.4, shown with sample data. Gaps indicate unavailable readings.*
+
+The manager collects readings while management windows are closed. Keep the manager running in the menu bar to retain the last hour; quitting it clears this in-memory history. Gameplay loop frequency measures server simulation updates, not client graphics FPS. Managed memory excludes native allocations. Player pings are omitted because crossplay does not expose a reliable measurement through this interface.
+
+## Restarts and updates
+
+**Scheduled restarts** affect one server. They save the world before restarting and leave deliberately stopped servers stopped. When warnings are selected, players see them in chat and on screen at **15, 10, 5 and 1 minute**. The maintenance log records the restart reason and the join code reported after startup. Keep the manager running for schedules to work.
+
+**Official Valheim server updates** are checked at launch and every **10 minutes**. A yellow **!** in the menu bar and beside **Update Valheim Server…** indicates a newer build. The grey **Valheim Server Build** row shows Valve's installed Steam build ID.
+
+Enable **Automatically Update All Valheim Servers** to install new stable builds automatically. It is off by default and preserves your choice on upgrade. All worlds share the official server installation, so an update coordinates all running servers: warn players, save, stop, update, then restart those that were running. Without working management tools, automatic updates wait until servers are confirmed empty; unknown player counts block the update. Progress follows **Stopping → Updating → Starting**.
+
+**Manager app updates** are separate. The top menu line checks GitHub at launch and every **six hours**. It stays grey when up to date and becomes clickable when **Update Available** appears. Clicking downloads and verifies the new app, saves and stops hosted servers, installs the update and reopens the manager. Previously running servers and servers marked for auto-start restart afterward. You can also open a newer downloaded app and accept its update prompt.
+
+For cancellation, failed updates and rollback, see [setup and recovery](docs/SETUP.md).
+
+## Management tools are included
+
+The app bundles a tested BepInEx loader and its own RCON companion for warnings, performance, messaging and moderation. These tools do not change gameplay rules, and players do not need client mods. Each server has a separate managed runtime and a private, authenticated connection accessible only on this Mac.
+
+- New servers install the tools on first start.
+- Existing servers without a previous management preference get them automatically while stopped after updating the manager. Running servers wait until they stop or restart.
+- An explicit choice to disable tools is preserved. Change it in **Server Management → Performance & Tools** while stopped.
+
+Compatible tool updates ship with manager updates and are applied automatically for enabled servers, using warned maintenance when a restart is needed. The app does not fetch arbitrary upstream BepInEx releases. It verifies package hashes, preserves configuration and credentials, and retains the previous runtime for recovery. Worlds remain separate from tool installations.
+
+General community mod browsing, importing and installation are **not included** in this release.
+
+## Saves, storage and hosting limits
+
+Data stays outside the app bundle, so replacing the app preserves your worlds and settings. The directory retains its original name for compatibility:
 
 ```text
 ~/Library/Application Support/Valheim Server Monitor/
-  profiles.json       # settings and passwords, mode 0600
-  worlds/<profile>/   # a separate save directory for each profile
-  runtime/           # SteamCMD and the native server downloaded from Valve
-  logs/               # shared tools and original server logs
-  servers/<profile>/  # additional servers’ process state and logs
-  deleted-servers/    # recoverable deleted saves and settings
+  profiles.json        # settings and passwords; owner-readable/writable only
+  worlds/<profile>/    # world saves
+  runtime/             # SteamCMD and the shared official Valheim server
+  management/<profile>/ # isolated managed runtime, tools and credentials
+  logs/                # shared tools, maintenance and original server logs
+  servers/<profile>/   # additional servers' process state and logs
+  deleted-servers/     # recoverable deleted worlds and settings
 ```
 
-Server control uses an app-owned record containing the PID, executable path, and process start time. It does not stop servers by a broad process-name match. Development uses an explicit isolated `VSM_HOME`; login-item mutations are disabled there. Existing CrossOver installations, third-party servers, and their launch agents are not discovered, modified, or migrated.
+Imports copy a one-world ZIP, modern world folder, or legacy `.db` with its matching `.fwl`. Use a consistent backup or stop the source server first. Imports check required files and packaging, not every world chunk. Saved world modifiers can persist; the editor explains when a setting inherits from the save rather than overriding it.
 
-## Current limits
+The manager controls only its own servers, identifying them by PID, executable path and process start time. It does not discover or take over independent servers or CrossOver installations. It prevents idle sleep while hosting, but closing a laptop lid, logging out or shutting down can interrupt hosting. Login startup happens **after a user signs in**, not before login. Quitting the manager leaves servers running, but stops monitoring, scheduled restarts and automatic updates until it reopens.
 
-- Login startup runs after a user signs in, not before login. Hosting ends on logout or shutdown.
-- Player counts come from server logs and may be stale or unavailable. This is not a live player-query protocol or an in-game activity audit.
-- Some world modifiers persist in saves. An unchecked flag does not remove a previously saved modifier. The profile editor explains this behavior.
-- Imports check packaging and required files, not every world chunk's internal integrity. Import from a stopped source server or a consistent backup.
-- No automatic migration, mod manager, remote server control, or CrossOver backend.
-- The app asks before installing Rosetta. Installing it accepts Apple's license and may require macOS authorization.
-- Updates are manual and require stopping all app-managed servers because they share one runtime. One previous server runtime is retained for recovery; world backups are handled by Valheim.
+Menu-bar player counts use the latest count reported in server logs and may be stale or unavailable. The management window queries connected players through the companion. This is not an in-game activity history or a remote administration service.
 
-## Build
+Native runtime tests run on Apple Silicon; the Intel app has also been tested under Rosetta. Physical Intel and macOS 13 hardware coverage remains pending. See [verification and coverage limits](docs/VERIFICATION.md).
 
-Install Xcode or its command-line tools, then:
+## Build and contribute
+
+Use macOS with a current Xcode/Swift toolchain. Unit tests do not need downloaded game files:
 
 ```sh
 swift test
+```
+
+To package the full app, also install **.NET 8** and provide the native Valheim server's reference assemblies:
+
+```sh
+export GAME_MANAGED_PATH="/path/to/server/valheim_server/Data/Managed"
+scripts/build-management.sh
 scripts/build.sh
 ```
 
-The universal app and ZIP are written to `dist/`. See [release instructions](docs/RELEASING.md) for Developer ID signing and notarization.
+The universal app and ZIP are written to `dist/`. Source builds are development artifacts unless you configure Developer ID signing and notarization. Follow [contributing instructions](CONTRIBUTING.md) for isolated development with `VSM_HOME`, and [release instructions](docs/RELEASING.md) for distribution.
 
 ## License and attribution
 
-The manager code and its original server/mountain icon are MIT licensed. This is an unofficial community tool, not affiliated with Iron Gate, Coffee Stain, Valve, or Apple. Valheim and SteamCMD are downloaded from Valve and remain subject to their owners' terms; their binaries, game assets, and logos are not distributed in this repository or the app ZIP.
+The manager, its original icon and its RCON companion are MIT licensed. Bundled third-party management components retain their own licenses and notices; the package includes those notices and Doorstop's corresponding source. Valheim and SteamCMD are downloaded from Valve, not redistributed in the app ZIP. No game assets, game DLLs or Valheim logos are bundled.
 
-Server flags follow the [official Valheim dedicated-server guide](https://www.valheimgame.com/support/a-guide-to-dedicated-servers/). The native launcher is inspected from Valve's dedicated-server app **896660**, macOS depot **896663**. See [verification notes](docs/VERIFICATION.md) for tested behavior and remaining checks.
-
-### Managed server support (development)
-
-New servers automatically install a source-built BepInEx package and the manager's RCON companion on first start. Each profile has a stable, separate runtime under `management/<profile-id>/runtime`, a private credential and a localhost-only automatically allocated RCON port. Existing profiles remain unchanged until you choose **Enable Server Management** while stopped.
-
-Open **Server Management…** from a server’s submenu for performance, management tools, startup options, scheduled restarts, and player moderation. Server settings, logs and deletion are also available there. Status refreshes automatically; there is no manual refresh button.
-
-The **Performance & Tools** tab shows game version, players, uptime, and graphs for **Server Gameplay Loop Update Frequency** and managed memory. Graphs have numbered gridlines and local-time labels. The manager samples each managed server once per second and keeps the last hour in memory, including while management windows are closed. Quitting the manager clears this history; unavailable readings and restarts appear as gaps. Player moderation and messaging have their own tabs.
-
-The manager carries a pinned, tested management package. When an updated manager supplies a newer package, it schedules a warned management restart independently of Valve server updates. It does not install arbitrary upstream BepInEx releases automatically. Package hashes are verified, config/credentials are preserved, and the previous runtime is retained. A failed management startup is stopped and rolled back where a previous runtime exists; that failed package/build is blocked from repeated retries. Worlds are stored separately and never replaced by a management package.
-
-To build management components from source, install .NET 8 and set `GAME_MANAGED_PATH` to the native server's `Data/Managed` folder, then run `scripts/build-management.sh`. No game DLLs are redistributed. See `Companion/` for the manager-owned MIT-licensed RCON source.
-
-Existing servers with no management preference receive BepInEx and the manager’s RCON companion automatically while stopped. Running servers wait until they stop or restart. An explicit choice to disable tools is preserved. Worlds and server settings are retained; players need no client mods for these management features.
+This is an unofficial community tool, not affiliated with Iron Gate, Coffee Stain, Valve or Apple.
