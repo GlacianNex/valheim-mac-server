@@ -3,6 +3,7 @@ import AppKit
 struct OnlinePlayer: Decodable {
     let name: String
     let id: String
+    var pingMs: Double? = nil
 }
 struct ManagementReading: Decodable {
     let version: String
@@ -12,11 +13,13 @@ struct ManagementReading: Decodable {
     let uptimeSeconds: Double
     let onlinePlayers: [OnlinePlayer]?
     let banned: [String]?
+    var pingSupported: Bool? = nil
 }
 struct LiveMetricSample {
     let time: Date
     let fps: Double?
     let memory: Double?
+    var pings: [String:Double] = [:]
 }
 final class LiveMetricChart: NSView {
     var title = "" { didSet { needsDisplay = true } }

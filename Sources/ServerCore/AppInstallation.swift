@@ -21,11 +21,34 @@ public enum AppInstallation {
         return version
     }
 
+    public static func isExperimental(_ bundle: Bundle = .main) -> Bool {
+        bundle.object(forInfoDictionaryKey: "VSMReleaseChannel") as? String == "experimental"
+    }
+
+    public static func isExperimental(at app: URL) throws -> Bool {
+        _ = try version(at: app)
+        let data = try Data(contentsOf:app.appendingPathComponent("Contents/Info.plist"))
+        let info = try PropertyListSerialization.propertyList(from:data,format:nil) as? [String:Any]
+        return info?["VSMReleaseChannel"] as? String == "experimental"
+    }
+
+    public static func canReplace(from source: URL, to destination: URL) throws -> Bool {
+        let incoming = try version(at:source), installed = try version(at:destination)
+        // A deliberately opened experimental download can replace any build, including
+        // another experiment with the same public version. Stable upgrades stay monotonic.
+        if try isExperimental(at:source) { return true }
+        if try isExperimental(at:destination) { return false }
+        return incoming.compare(installed,options:.numeric) == .orderedDescending
+    }
+
+    public static func displayVersion(at app: URL) throws -> String {
+        try isExperimental(at:app) ? "Experimental" : version(at:app)
+    }
+
     /// Returns a backup directory. Keep it until the replacement has launched successfully.
     public static func update(from source: URL, to destination: URL, beforeReplacing: () throws -> Void) throws -> URL {
-        let incoming = try version(at: source), installed = try version(at: destination)
-        guard incoming.compare(installed, options: .numeric) == .orderedDescending else {
-            throw MonitorError("Version \(installed) is already installed. Open that copy from Applications. Updates must be newer than the installed version.")
+        guard try canReplace(from:source,to:destination) else {
+            throw MonitorError("This download cannot replace the installed build. Experimental builds take precedence; stable updates must be newer. To leave experimental testing, replace the app in Applications using Finder.")
         }
         let files = FileManager.default
         let transaction = destination.deletingLastPathComponent().appendingPathComponent(".valheim-update-" + UUID().uuidString)

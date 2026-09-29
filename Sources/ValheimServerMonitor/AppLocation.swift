@@ -14,11 +14,11 @@ enum AppLocation {
         var versionSummary = ""
         do {
             if updating {
-                let incoming = try AppInstallation.version(at: current)
-                let installed = try AppInstallation.version(at: destination)
-                versionSummary = "Update version \(installed) to \(incoming). "
-                guard incoming.compare(installed, options: .numeric) == .orderedDescending else {
-                    showError(MonitorError("Version \(installed) is already installed. Open it from Applications. This download does not contain a newer version."))
+                let incoming = try AppInstallation.displayVersion(at: current)
+                let installed = try AppInstallation.displayVersion(at: destination)
+                versionSummary = "Replace \(installed) with \(incoming). "
+                guard try AppInstallation.canReplace(from:current,to:destination) else {
+                    showError(MonitorError("The installed \(installed) build takes precedence over this download. Open it from Applications. To leave experimental testing, replace the app using Finder."))
                     completion(false); return
                 }
             }

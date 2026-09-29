@@ -22,7 +22,7 @@ final class ManagementDefaultsTests: XCTestCase {
         try FileManager.default.setAttributes([.posixPermissions:0o700],ofItemAtPath:paths.executable.path)
         let package = root.appendingPathComponent("package")
         var hashes: [String:String] = [:]
-        for name in ["BepInEx/core/BepInEx.dll","BepInEx/core/BepInEx.Preloader.dll","BepInEx/plugins/ManagerRcon/ManagerRcon.dll","libdoorstop.dylib"] {
+        for name in ["BepInEx/core/BepInEx.dll","BepInEx/core/BepInEx.Preloader.dll","BepInEx/plugins/ManagerRcon/ManagerRcon.dll","libdoorstop.dylib", "BepInEx/plugins/Jotunn/Jotunn.dll", "BepInEx/plugins/NetworkPerformanceSystem/NetworkPerformanceSystem.dll"] {
             let data = Data(name.utf8); try atomicWrite(data,to:package.appendingPathComponent(name))
             hashes[name] = SHA256.hash(data:data).map { String(format:"%02x",$0) }.joined()
         }

@@ -19,5 +19,6 @@ public struct StartFeedback {
         }
         return false
     }
+    public mutating func cancel() { clear() }
     private mutating func clear() { requestedAt = nil; acknowledgedAt = nil }
 }

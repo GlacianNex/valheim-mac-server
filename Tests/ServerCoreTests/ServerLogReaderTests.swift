@@ -3,6 +3,24 @@ import XCTest
 @testable import ServerCore
 
 final class ServerLogReaderTests: XCTestCase {
+    func testSteamCountsFromManagementLogSurviveRefreshAndRelaunch() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: url) }
+        try Data("Opened Steam server\nGame server connected\n".utf8).write(to: url)
+        let reader = ServerLogReader()
+        XCTAssertEqual(reader.read(url).players, "") // Unknown until an actual count arrives.
+        let file = try FileHandle(forWritingTo: url); defer { try? file.close() }
+        try file.seekToEnd()
+        for count in [0, 1, 2, 1, 0] {
+            try file.write(contentsOf: Data("VSM player count: \(count)\nWorld saved\n".utf8))
+            XCTAssertEqual(reader.read(url).players, String(count))
+            XCTAssertEqual(reader.read(url).players, String(count))
+            XCTAssertEqual(ServerLogReader().read(url).players, String(count))
+            XCTAssertEqual(reader.read(url).code, "")
+        }
+        try file.write(contentsOf: Data("Connections 3 ZDOS:42\nVSM player count: 2\n".utf8))
+        XCTAssertEqual(reader.read(url).players, "2")
+    }
     func testLargeLogRetainsReadinessAndReconstructsAfterManagerRestart() throws {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: url) }

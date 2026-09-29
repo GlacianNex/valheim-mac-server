@@ -65,8 +65,38 @@ try:
  assert all(db['managedServers'][id] for id in ids)
  db['managedServers'].pop(ids[0]) # Simulate a pre-management deployment.
  db['profileAutostart']={id:True for id in ids};(root/'profiles.json').write_text(json.dumps(db))
+ ctl("enable-networking",ids[1])
  for id in ids:start(id)
  states=[ready(id) for id in ids]
+ for i,id in enumerate(ids):
+  plugins=root/'management'/id/'runtime/BepInEx/plugins'
+  assert (plugins/'Jotunn/Jotunn.dll').is_file()
+  assert (plugins/'NetworkPerformanceSystem/NetworkPerformanceSystem.dll').is_file() == (i==1)
+  log=(root/'management'/id/'runtime/BepInEx/LogOutput.log').read_text()
+  assert 'Loading [Jotunn 2.30.2]' in log, log[-3000:]
+  if i==1:
+   assert 'NetworkPerformanceSystem 1.6.0' in log, log[-3000:]
+  assert '[Error' not in log, log[-6000:]
+ for id in ids:
+  snapshot_path=root/'management'/id/'runtime/BepInEx/config/vsm-mod-status.json'
+  deadline=time.monotonic()+15
+  while not snapshot_path.exists() and time.monotonic()<deadline:time.sleep(.25)
+  snapshot=json.loads(snapshot_path.read_text())
+  assert snapshot['pid']==json.loads((scoped(id)/'running.json').read_text())['pid']
+  assert any(m['name']=='Jotunn' and m['status']=='Loaded' and m['version']=='2.30.2' for m in snapshot['mods']),snapshot
+  assert any(m['name']=='Manager RCON' and m['status']=='Loaded' for m in snapshot['mods']),snapshot
+  assert all('dependencies' in m and 'path' in m for m in snapshot['mods']),snapshot
+ print('PASS: live mod names, GUIDs, versions, dependency metadata and Loaded status match each server PID',flush=True)
+ print('PASS: native Jotunn 2.30.2 and optional NPS 1.6.0 loaded without plugin errors',flush=True)
+ # Both backends report a real zero in the Unity log, including before the 10-minute summary.
+ states=json.loads(ctl('status'))['servers']
+ assert all(s['players']=='0' for s in states),states
+ assert next(s for s in states if s['selected']==ids[1])['crossplay'] is False
+ assert next(s for s in states if s['selected']==ids[1])['port']==29766
+ for id in ids:
+  record=json.loads((scoped(id)/'running.json').read_text())
+  assert 'VSM player count: 0' in pathlib.Path(record['log']).read_text()
+ print('PASS: Steam and crossplay player counts in real server logs; join-address metadata',flush=True)
  assert all(json.loads((root/'profiles.json').read_text())['managedServers'][id] for id in ids)
  records=[json.loads((scoped(id)/'running.json').read_text()) for id in ids]
  endpoints=[json.loads((root/'management'/id/'runtime/BepInEx/config/manager-rcon-endpoint.json').read_text()) for id in ids]
@@ -77,9 +107,35 @@ try:
  for id in ids:
   info=json.loads(ctl('management-info',id));assert info['players']==0 and info['fps']>0 and info['managedMemoryBytes']>0
   assert info['onlinePlayers']==[] and isinstance(info['banned'],list)
+  assert info['pingSupported'] == (id == ids[1]), info
   for minutes in [15,10,5,1]:
    msg=f'Isolated acceptance test: scheduled restart warning {minutes}m.'
    assert rpc(id,'say '+msg)=='OK';assert rpc(id,'showMessage '+msg)=='OK'
+ for id in ids:
+  info=json.loads(rpc(id,'worldInfo'));assert info['raidPauseAvailable'] is True and isinstance(info['events'],list), info
+  for minutes in [180,360,720]:
+   before=json.loads(rpc(id,'worldInfo'))['seconds'];assert rpc(id,f'worldAdvance {minutes}').startswith('OK')
+   assert json.loads(rpc(id,'worldInfo'))['seconds']>before
+  assert rpc(id,'worldAdvance 721').startswith('ERROR:')
+  assert rpc(id,'worldAdvance -1').startswith('ERROR:')
+  assert rpc(id,'worldRaidPause 1').startswith('OK')
+  assert 0 < json.loads(rpc(id,'worldInfo'))['raidsPausedSeconds'] <= 60
+  assert rpc(id,'worldRaidStart '+json.dumps({'raid':'invalid','player':'missing'})).startswith('ERROR:')
+  assert rpc(id,'worldRaidResume').startswith('OK')
+  assert json.loads(rpc(id,'worldInfo'))['raidsPausedSeconds']==0
+  assert rpc(id,'worldRaidStart '+json.dumps({'raid':'invalid','player':'missing'})).startswith('ERROR:')
+  assert rpc(id,'worldRaidStop').startswith('OK')
+  assert json.loads(rpc(id,'worldInfo'))['raid']==''
+  assert rpc(id,'worldMorning').startswith('OK')
+  time.sleep(1)
+  assert rpc(id,'worldSave').startswith('OK')
+  end=time.monotonic()+60
+  while time.monotonic()<end:
+   state=json.loads(rpc(id,'worldInfo'))
+   if not state['saveInProgress'] and state['lastSaveSecondsAgo'] is not None:break
+   time.sleep(1)
+  else:raise RuntimeError('Save not confirmed')
+ print('PASS: world time advance/morning, async save completion, raid stop/pause/resume and invalid raid rejection on both backends',flush=True)
  try:rpc(ids[0],'health',password='wrong-password');raise RuntimeError('Wrong password accepted')
  except AssertionError:pass
  assert rpc(ids[0],'invalid-command').startswith('ERROR:')
@@ -99,12 +155,47 @@ try:
   assert 'reason=scheduled restarted; join code=' in (root/'logs/maintenance.log').read_text()
  else:
   ctl('stop',ids[0]);processes[0][1].wait(timeout=20)
+  backup=json.loads(ctl('world-backup',ids[0],'Native world checkpoint'))
+  ctl('world-restore',ids[0],backup['id'])
+  assert len(json.loads(ctl('world-backups',ids[0])))==2
+  print('PASS: native world backup/restore with recovery snapshot',flush=True)
   start(ids[0]);after=ready(ids[0]);assert after['code'] and after['running']
  saves=[p for p in (root/'worlds'/ids[0]).rglob('*') if p.suffix in ('.db','.db2')];assert saves and saves[0].stat().st_size>0
  assert (root/'management'/ids[0]/'credential').read_bytes()==secret
  assert json.loads((scoped(ids[1])/'running.json').read_text())['pid']==records[1]['pid']
  print('PASS: graceful world save and restart, fresh join-code observation, stable credentials, unrelated server PID unchanged',flush=True)
- (root/'acceptance-result.json').write_text(json.dumps({'passed':True,'server_ids':ids,'versions':[json.loads(ctl('management-info',id))['version'] for id in ids],'join_code_observed':bool(after['code'])},indent=2))
+ # Independent networking-only and vanilla launches use the same saved world.
+ id=ids[1];ctl('stop',id)
+ for sid,p in processes:
+  if sid==id:p.wait(timeout=30)
+ ctl('disable-management',id)
+ p=start(id)
+ end=time.monotonic()+200
+ while time.monotonic()<end:
+  status=next(s for s in json.loads(ctl('status'))['servers'] if s['selected']==id)
+  if status['state']=='Online':break
+  if p.poll() is not None:raise RuntimeError('Network-only service exited')
+  time.sleep(1)
+ else:raise RuntimeError('Network-only startup timeout')
+ plugins=root/'management'/id/'runtime/BepInEx/plugins'
+ assert not (plugins/'ManagerRcon').exists()
+ assert (plugins/'Jotunn/Jotunn.dll').is_file()
+ assert (plugins/'NetworkPerformanceSystem/NetworkPerformanceSystem.dll').is_file()
+ log=(root/'management'/id/'runtime/BepInEx/LogOutput.log').read_text()
+ assert 'NetworkPerformanceSystem 1.6.0' in log and '[Error' not in log,log[-6000:]
+ ctl('stop',id);p.wait(timeout=30);ctl('disable-networking',id)
+ p=start(id)
+ end=time.monotonic()+200
+ while time.monotonic()<end:
+  status=next(s for s in json.loads(ctl('status'))['servers'] if s['selected']==id)
+  if status['state']=='Online':break
+  if p.poll() is not None:raise RuntimeError('Vanilla service exited')
+  time.sleep(1)
+ else:raise RuntimeError('Vanilla startup timeout')
+ record=json.loads((scoped(id)/'running.json').read_text())
+ assert str(root/'runtime/server') in record['executable'],record
+ print('PASS: networking-only restart removes RCON; both off boots vanilla with the same world',flush=True)
+ (root/'acceptance-result.json').write_text(json.dumps({'passed':True,'server_ids':ids,'versions':[json.loads(ctl('management-info',ids[0]))['version']],'join_code_observed':bool(after['code'])},indent=2))
 finally:
  for id in ids:
   try:ctl('stop',id)

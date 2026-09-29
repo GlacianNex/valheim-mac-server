@@ -14,13 +14,50 @@ public final class ManagedServer {
         return manifest.identity
     }
     public var needsUpdate: Bool {
-        guard enabled, let version = Self.availableVersion,
+        guard loaderEnabled, let version = Self.availableVersion,
               let installation = try? JSONDecoder().decode(Installation.self, from: Data(contentsOf: root.appendingPathComponent("installation.json"))) else { return false }
-        return installation.package != version
+        return installation.package != Self.selectionIdentity(version, management: enabled, networking: networkingEnabled, maxPlayers:configuredPlayerLimit) + customModIdentity
     }
     public var enabled: Bool {
         guard let id = paths.profileID, let db = try? Store(paths: paths).load() else { return false }
         return db.managedServers?[id] == true
+    }
+    public var networkingEnabled: Bool {
+        guard let id = paths.profileID, let db = try? Store(paths: paths).load() else { return false }
+        return db.networkOptimizations?[id] == true
+    }
+    public var loaderEnabled: Bool { enabled || networkingEnabled || !customModIdentity.isEmpty }
+    private var customModIdentity: String { (try? modLibrary?.selectionIdentity) ?? "" }
+    private var modLibrary: ModLibrary? { paths.profileID.flatMap { try? ModLibrary(paths:paths,profileID:$0) } }
+    public var hasDeployedCustomMods: Bool {
+        guard let receipt = try? JSONDecoder().decode(ModDeploymentReceipt.self,from:Data(contentsOf:runtime.appendingPathComponent("BepInEx/vsm-mod-receipt.json"))) else { return false }
+        return !receipt.mods.isEmpty
+    }
+    private var configuredPlayerLimit: Int? { (try? Store(paths:paths).selected())?.maxPlayers }
+    static func selectionIdentity(_ package: String, management: Bool, networking: Bool, maxPlayers: Int? = nil) -> String {
+        package + ":network-policy=vanilla-capacity-v1:management=\(management):networking=\(networking):players=\(networking ? maxPlayers.map(String.init) ?? "default" : "default")"
+    }
+    /// Networking optimization must not change the game's player capacity.
+    static func vanillaCapacityConfig(_ existing: String) -> String {
+        var lines = existing.components(separatedBy: "\n")
+        let section = lines.firstIndex { $0.trimmingCharacters(in: .whitespacesAndNewlines) == "[Player Limit]" }
+        guard let section else { return existing + "\n[Player Limit]\nEnable Player Limit Override = false\n" }
+        let end = lines.indices.dropFirst(section + 1).first { lines[$0].trimmingCharacters(in: .whitespaces).hasPrefix("[") } ?? lines.count
+        if let key = (section + 1..<end).first(where: { lines[$0].trimmingCharacters(in: .whitespaces).hasPrefix("Enable Player Limit Override =") }) {
+            lines[key] = "Enable Player Limit Override = false"
+        } else { lines.insert("Enable Player Limit Override = false", at: section + 1) }
+        return lines.joined(separator: "\n")
+    }
+    static func capacityConfig(_ existing: String, maxPlayers: Int?) -> String {
+        let vanilla = vanillaCapacityConfig(existing)
+        guard let maxPlayers else { return vanilla }
+        var lines = vanilla.components(separatedBy:"\n")
+        let start = lines.firstIndex { $0.trimmingCharacters(in:.whitespaces) == "[Player Limit]" }!
+        let end = lines.indices.dropFirst(start + 1).first { lines[$0].trimmingCharacters(in:.whitespaces).hasPrefix("[") } ?? lines.count
+        for i in start + 1..<end where lines[i].trimmingCharacters(in:.whitespaces).hasPrefix("Enable Player Limit Override =") { lines[i] = "Enable Player Limit Override = true" }
+        if let key = (start + 1..<end).first(where:{ lines[$0].trimmingCharacters(in:.whitespaces).hasPrefix("Max Players =") }) { lines[key] = "Max Players = \(maxPlayers)" }
+        else { lines.insert("Max Players = \(maxPlayers)",at:start + 1) }
+        return lines.joined(separator:"\n")
     }
     public static var package: URL? {
         if let explicit = ProcessInfo.processInfo.environment["VSM_MANAGEMENT_PACKAGE"] { return URL(fileURLWithPath: explicit) }
@@ -35,10 +72,10 @@ public final class ManagedServer {
         }
     }
     public struct Installation: Codable { let package: String; let build: String }
-    public func prepare(package: URL? = ManagedServer.package) throws {
+    public func prepare(package: URL? = ManagedServer.package, management: Bool = true, networking: Bool = false) throws {
         guard let package else { throw MonitorError("Management support is missing from this app. Reinstall the manager.") }
         let manifest = try JSONDecoder().decode(Manifest.self, from: Data(contentsOf: package.appendingPathComponent("manifest.json")))
-        let required = ["BepInEx/core/BepInEx.dll", "BepInEx/core/BepInEx.Preloader.dll", "BepInEx/plugins/ManagerRcon/ManagerRcon.dll", "libdoorstop.dylib"]
+        let required = ["BepInEx/core/BepInEx.dll", "BepInEx/core/BepInEx.Preloader.dll", "BepInEx/plugins/ManagerRcon/ManagerRcon.dll", "libdoorstop.dylib", "BepInEx/plugins/Jotunn/Jotunn.dll"] + (networking ? ["BepInEx/plugins/NetworkPerformanceSystem/NetworkPerformanceSystem.dll"] : [])
         guard required.allSatisfy({ manifest.files[$0] != nil }) else { throw MonitorError("Management package is incomplete.") }
         for (name, digest) in manifest.files {
             guard !name.hasPrefix("/"), !name.split(separator: "/").contains("..") else { throw MonitorError("Invalid management package path.") }
@@ -47,12 +84,13 @@ public final class ManagedServer {
         }
         guard let build = ServerVersion.installed(paths: paths) else { throw MonitorError("Install the native server first.") }
         let file = root.appendingPathComponent("installation.json")
-        let identity = manifest.identity + ":" + build
+        let selectedPackage = Self.selectionIdentity(manifest.identity, management: management, networking: networking, maxPlayers:configuredPlayerLimit) + (try modLibrary?.selectionIdentity ?? "")
+        let identity = selectedPackage + ":" + build
         if (try? String(contentsOf: root.appendingPathComponent("rejected-installation"))) == identity {
             throw MonitorError("Management startup failed for this build. The previous installation is preserved. Install a corrected manager package before retrying.")
         }
         if let current = try? JSONDecoder().decode(Installation.self, from: Data(contentsOf: file)),
-           current.package == manifest.identity, current.build == build,
+           current.package == selectedPackage, current.build == build,
            FileManager.default.isExecutableFile(atPath: executable.path) { return }
         let fm = FileManager.default
         try fm.createDirectory(at: root, withIntermediateDirectories: true, attributes: [.posixPermissions:0o700])
@@ -65,11 +103,13 @@ public final class ManagedServer {
         let previous = runtime.appendingPathComponent("BepInEx")
         if fm.fileExists(atPath: previous.path) { try fm.copyItem(at: previous, to: stage.appendingPathComponent("BepInEx")) }
         // Replace managed binaries completely so removed DLLs cannot survive an upgrade.
-        for directory in ["BepInEx/core", "BepInEx/plugins/ManagerRcon"] {
+        for directory in ["BepInEx/core", "BepInEx/plugins/ManagerRcon", "BepInEx/plugins/Jotunn", "BepInEx/plugins/NetworkPerformanceSystem"] {
             let target = stage.appendingPathComponent(directory)
             if fm.fileExists(atPath:target.path) { try fm.removeItem(at:target) }
         }
         for name in manifest.files.keys.sorted() {
+            if !management && name.hasPrefix("BepInEx/plugins/ManagerRcon/") { continue }
+            if !networking && name.hasPrefix("BepInEx/plugins/NetworkPerformanceSystem/") { continue }
             let target = stage.appendingPathComponent(name)
             try fm.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
             if fm.fileExists(atPath: target.path) { try fm.removeItem(at: target) }
@@ -80,6 +120,12 @@ public final class ManagedServer {
         let targetLib = lib.appendingPathComponent("libmono-native.dylib")
         if fm.fileExists(atPath: targetLib.path) { try fm.removeItem(at: targetLib) }
         try fm.copyItem(at: stage.appendingPathComponent("valheim_server/libmono-native.dylib"), to: targetLib)
+        if networking {
+            let networkConfig = stage.appendingPathComponent("BepInEx/config/MidnightsFX.NetworkPerformanceSystem.cfg")
+            let existing = (try? String(contentsOf: networkConfig, encoding: .utf8)) ?? ""
+            try atomicWrite(Data(Self.capacityConfig(existing,maxPlayers:configuredPlayerLimit).utf8), to: networkConfig)
+        }
+        try modLibrary?.deploy(into:stage,previous:runtime)
         let secretFile = root.appendingPathComponent("credential")
         let secret: String
         if let existing = try? String(contentsOf: secretFile), existing.count >= 32 { secret = existing }
@@ -91,7 +137,7 @@ public final class ManagedServer {
         let backup = root.appendingPathComponent("previous-runtime")
         if fm.fileExists(atPath: backup.path) { try fm.removeItem(at: backup) }
         if fm.fileExists(atPath: runtime.path) { try fm.moveItem(at: runtime, to: backup) }
-        do { try fm.moveItem(at: stage, to: runtime); try atomicWrite(encode(Installation(package: manifest.identity, build: build)), to: file) }
+        do { try fm.moveItem(at: stage, to: runtime); try atomicWrite(encode(Installation(package: selectedPackage, build: build)), to: file) }
         catch { if !fm.fileExists(atPath: runtime.path), fm.fileExists(atPath: backup.path) { try? fm.moveItem(at: backup, to: runtime) }; throw error }
     }
     public func rollbackFailedStart() throws {

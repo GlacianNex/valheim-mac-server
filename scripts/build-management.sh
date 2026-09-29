@@ -34,3 +34,5 @@ shutil.copy2(cache/'doorstop-source.tar.gz',out/'UnityDoorstop-source-v4.5.0.tar
 files={str(p.relative_to(out)):hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(out.rglob('*')) if p.is_file() and p.name!='manifest.json'}
 (out/'manifest.json').write_text(json.dumps({'version':'1.1.0','files':files},indent=2))
 PY
+
+python3 scripts/bundle-network-plugins.py

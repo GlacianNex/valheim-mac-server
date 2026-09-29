@@ -2,6 +2,7 @@ import AppKit
 
 enum SettingsHelp {
     static let fields: [String:String] = [
+        "maxPlayers":"Default uses Valheim’s normal limit of 10 players without an override. For best performance, keep it at Default. Custom limits require Network Optimization Mods and apply on the next server start. With networking mods disabled, Valheim’s default applies.",
         "label":"A unique name shown only in this manager. Changing it does not rename your world or change the public server name.",
         "name":"The name players see in Valheim's server browser. It must not contain the server password.",
         "seed":"Optional for a new world: 1–10 letters or digits (A–Z, a–z, 0–9). Case matters. Leave blank for a random seed. The seed determines the world terrain and is locked when the server is created. Imported worlds retain their original seed; existing worlds show the seed from the latest readable save. The same seed can generate different terrain across Valheim world-generation updates.",
@@ -53,6 +54,7 @@ enum SettingsHelp {
         return title(key, raw)
     }
     static func title(_ key:String,_ raw:String)->String {
+        if key == "maxPlayers" { return raw.isEmpty ? "Default (10 players)" : raw + " players" }
         if raw.isEmpty {return key=="preset" ? "Keep world settings (no preset)" : "Keep world / preset value"}
         let compact: [String:[String:String]] = [
             "DeathPenalty":["casual":"Casual — 1% skill loss","veryeasy":"Very Easy — 1% skill loss","easy":"Easy — 2.5% skill loss","hard":"Hard — 7.5% skill loss","hardcore":"Hardcore — 100% skill loss"],
@@ -79,6 +81,7 @@ enum SettingsHelp {
         return base + "\n\n" + values.map{titles[key]?[$0] ?? $0}.joined(separator:"\n")
     }
     static func optionHelp(_ key:String,_ raw:String)->String {
+        if key == "maxPlayers" { return fields[key]! }
         let extra: [String:String] = [
             "Combat:veryeasy":"Player damage 1.25×; enemy damage 0.5×; enemy speed/size 0.9×.",
             "Combat:easy":"Player damage 1.10×; enemy damage 0.75×; enemy speed/size 0.9×.",

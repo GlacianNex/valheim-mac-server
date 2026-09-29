@@ -65,7 +65,13 @@ final class PerformanceRecorder {
             }
             state.uptime = uptime
         }
-        state.samples.append(LiveMetricSample(time:now,fps:reading?.fps,memory:reading.map { $0.managedMemoryBytes/1048576 }))
+        var pings: [String:Double] = [:]
+        if reading?.pingSupported == true {
+            for player in reading?.onlinePlayers ?? [] {
+                if let ping = player.pingMs, ping.isFinite, ping >= 0 { pings[player.id] = ping }
+            }
+        }
+        state.samples.append(LiveMetricSample(time:now,fps:reading?.fps,memory:reading.map { $0.managedMemoryBytes/1048576 },pings:pings))
         state.samples.removeAll { now.timeIntervalSince($0.time) > 3600 }
         if state.samples.count > 7202 { state.samples.removeFirst(state.samples.count-7202) }
         state.reading = reading; state.updated = now; series[id] = state

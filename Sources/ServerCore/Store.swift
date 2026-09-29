@@ -11,6 +11,7 @@ public struct Database: Codable {
     public var restartSchedules: [String: RestartSchedule]?
     public var restartReceipts: [String: RestartReceipt]?
     public var managedServers: [String: Bool]?
+    public var networkOptimizations: [String: Bool]?
     public var lastAutomaticServerUpdateAttempt: String?
     public var legacyProfile: String?
     public var profileAutostart: [String: Bool]?
@@ -116,6 +117,7 @@ public final class Store {
                 db.restartSchedules?.removeValue(forKey: id)
                 db.restartReceipts?.removeValue(forKey: id)
                 db.managedServers?.removeValue(forKey: id)
+                db.networkOptimizations?.removeValue(forKey: id)
                 if db.legacyProfile == id { db.autostart = false }
                 if db.selected == id { db.selected = db.profiles.first?.id ?? "" }
                 return recovery

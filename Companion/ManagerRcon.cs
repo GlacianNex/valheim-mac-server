@@ -12,9 +12,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 
-// Manager-owned management bridge. No gameplay patches or gameplay-editing commands.
+// Manager-owned management bridge. World changes occur only through explicit controls.
 [BepInPlugin("io.github.glaciannex.manager.rcon", "Manager RCON", "1.1.0")]
-public sealed class ManagerRcon : BaseUnityPlugin
+public sealed partial class ManagerRcon : BaseUnityPlugin
 {
     private TcpListener listener;
     private readonly ConcurrentQueue<Action> pending = new ConcurrentQueue<Action>();
@@ -25,9 +25,14 @@ public sealed class ManagerRcon : BaseUnityPlugin
     private bool attempted;
     private float frameSeconds;
     private string endpointPath;
+    private int lastPlayerCount = -1;
+    private float nextPlayerCountCheck;
+    private float nextPlayerCountReport;
 
     private void Awake()
     {
+        InitializeWorldControls();
+        InitializeModStatus();
         password = Config.Bind("Connection", "Password", "", "Manager-generated local credential").Value;
         port = Config.Bind("Connection", "Port", 0, "0 selects an unused local port").Value;
         endpointPath = Path.Combine(Paths.ConfigPath, "manager-rcon-endpoint.json");
@@ -35,6 +40,8 @@ public sealed class ManagerRcon : BaseUnityPlugin
     }
     private void Update()
     {
+        UpdateWorldControls();
+        UpdateModStatus();
         frameSeconds = frameSeconds == 0 ? Time.unscaledDeltaTime : frameSeconds * 0.95f + Time.unscaledDeltaTime * 0.05f;
         // Runs for both loaded and newly generated worlds; no LoadWorld patch required.
         if (!attempted && ZNet.instance != null && ZNet.instance.IsServer() && Game.instance != null)
@@ -51,6 +58,18 @@ public sealed class ManagerRcon : BaseUnityPlugin
                 Task.Run((Action)Accept);
             }
             catch (Exception e) { Logger.LogError("Manager RCON startup failed: " + e.Message); }
+        }
+        // Write authoritative counts into the Unity server log for either network backend.
+        if (ZNet.instance != null && ZNet.instance.IsServer() && Game.instance != null && Time.realtimeSinceStartup >= nextPlayerCountCheck)
+        {
+            nextPlayerCountCheck = Time.realtimeSinceStartup + 1f;
+            int count = ZNet.instance.GetPlayerList().Count;
+            if (count != lastPlayerCount || Time.realtimeSinceStartup >= nextPlayerCountReport)
+            {
+                UnityEngine.Debug.Log("VSM player count: " + count);
+                lastPlayerCount = count;
+                nextPlayerCountReport = Time.realtimeSinceStartup + 60f;
+            }
         }
         for (int n = 0; n < 8 && pending.TryDequeue(out var action); n++) action();
     }
@@ -116,6 +135,7 @@ public sealed class ManagerRcon : BaseUnityPlugin
     private string Execute(string command)
     {
         if (ZNet.instance == null || !ZNet.instance.IsServer() || ZRoutedRpc.instance == null) return "ERROR: Server is not ready";
+        if (command.StartsWith("world")) return WorldCommand(command);
         if (command == "health") return "OK ManagerRcon 1.1.0";
         if (command == "players") return "Online " + ZNet.instance.GetPlayerList().Count;
         if (command == "banned") return Serialize(new BanInfo { entries = ZNet.instance.Banned.ToArray() });
@@ -126,6 +146,7 @@ public sealed class ManagerRcon : BaseUnityPlugin
                 fps = frameSeconds > 0 ? 1f / frameSeconds : 0,
                 managedMemoryBytes = GC.GetTotalMemory(false), uptimeSeconds = Time.realtimeSinceStartup,
                 onlinePlayers = ZNet.instance.GetPeers().Where(p => p.IsReady() && !p.m_server).Select(Player).ToArray(),
+                pingSupported = !Environment.GetCommandLineArgs().Contains("-crossplay"),
                 banned = ZNet.instance.Banned.ToArray()
             });
         }
@@ -154,21 +175,39 @@ public sealed class ManagerRcon : BaseUnityPlugin
         }
     }
     private static PlayerInfo Player(ZNetPeer peer) {
-        return new PlayerInfo { name = peer.m_playerName, id = peer.m_socket.GetHostName() };
+        double? ping = null;
+        // PlayFab supplies placeholder quality values, so only inspect Steam sockets.
+        if (peer.m_socket is ZSteamSocket && !Environment.GetCommandLineArgs().Contains("-crossplay")) {
+            try {
+                // Valheim's GetConnectionQuality uses the client Steam API even on a dedicated server.
+                // Query the server API, matching the game's dedicated-server send-queue queries.
+                var field = HarmonyLib.AccessTools.Field(typeof(ZSteamSocket), "m_con");
+                if (field?.GetValue(peer.m_socket) is Steamworks.HSteamNetConnection connection) {
+                    var status = new Steamworks.SteamNetConnectionRealTimeStatus_t();
+                    var lane = new Steamworks.SteamNetConnectionRealTimeLaneStatus_t();
+                    var result = Steamworks.SteamGameServerNetworkingSockets.GetConnectionRealTimeStatus(connection, ref status, 0, ref lane);
+                    if (result == Steamworks.EResult.k_EResultOK && status.m_nPing >= 0) ping = status.m_nPing;
+                }
+            } catch { /* A missing measurement must not break player lists or moderation. */ }
+        }
+        return new PlayerInfo { name = peer.m_playerName, id = peer.m_socket.GetHostName(), pingMs = ping };
     }
-    [DataContract] private class PlayerInfo { [DataMember] public string name; [DataMember] public string id; }
+    [DataContract] private class PlayerInfo { [DataMember] public string name; [DataMember] public string id; [DataMember] public double? pingMs; }
     [DataContract] private class BanInfo { [DataMember] public string[] entries; }
     [DataContract] private class ServerInfo {
         [DataMember] public string version;
         [DataMember] public PlayerInfo[] onlinePlayers;
         [DataMember] public string[] banned;
         [DataMember] public int players;
+        [DataMember] public bool pingSupported;
         [DataMember] public float fps;
         [DataMember] public long managedMemoryBytes;
         [DataMember] public float uptimeSeconds;
     }
     private void OnDestroy()
     {
+        if (modLog != null) BepInEx.Logging.Logger.Listeners.Remove(modLog);
+        worldHarmony?.UnpatchSelf();
         stopping.Cancel(); listener?.Stop();
         if (File.Exists(endpointPath)) File.Delete(endpointPath);
     }

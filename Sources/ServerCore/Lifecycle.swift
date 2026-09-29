@@ -9,8 +9,11 @@ public struct RunningRecord: Codable {
     public let log: String
 }
 public struct ServerStatus: Codable {
+    public init() {}
     public var state = "Stopped", players = "", code = "", profileName = "No profile", selected = ""
     public var running = false, autostart = false, monitorAtLogin = false, installed = false
+    public var crossplay: Bool?
+    public var port: Int?
     public var managementEnabled: Bool?
     public var automaticServerUpdates: Bool?
     public var profiles: [Summary] = []
@@ -60,6 +63,8 @@ public final class Lifecycle {
         value.installed = FileManager.default.isExecutableFile(atPath: paths.executable.path)
         value.profiles = db.profiles.map { ServerStatus.Summary(id: $0.id, label: $0.label) }
         value.selected = paths.profileID ?? db.selected; value.profileName = db.profiles.first { $0.id == value.selected }?.label ?? "No profile"
+        let profile = db.profiles.first { $0.id == value.selected }
+        value.crossplay = profile?.crossplay; value.port = profile?.port
         // Installation owns the legacy service lock too; it is not a running server.
         if Installer.isInstalling(paths: paths) {
             value.state = "Updating"; value.running = false
@@ -91,10 +96,10 @@ public final class Lifecycle {
             return String(log[range])
         }
         // Preserve the latest reported count, including disconnect announcements.
-        let events = try? NSRegularExpression(pattern: "(?:is active with|now) ([0-9]+) player|\\bConnections ([0-9]+) ZDOS:")
+        let events = try? NSRegularExpression(pattern: "(?:is active with|now) ([0-9]+) player|VSM player count: ([0-9]+)\\b|\\bConnections ([0-9]+) ZDOS:")
         var players: String?
         if let event = events?.matches(in: log, range: NSRange(log.startIndex..., in: log)).last {
-            for group in 1...2 {
+            for group in 1...3 {
                 if let range = Range(event.range(at: group), in: log) { players = String(log[range]); break }
             }
         }
@@ -170,19 +175,26 @@ public final class Lifecycle {
         let session = UUID().uuidString.lowercased()
         let log = paths.logs.appendingPathComponent("server-\(session).log")
         let console = paths.logs.appendingPathComponent("console-\(session).log")
+        let firstStart = paths.stateRoot.appendingPathComponent("first-start-log")
+        if !FileManager.default.fileExists(atPath: firstStart.path) {
+            // Existing deployments already have a launch history; do not show them a first-start hint.
+            let previous = FileManager.default.fileExists(atPath: paths.file("latest-log").path)
+            try atomicWrite(Data((previous ? "previously-started" : log.path).utf8), to: firstStart)
+        }
         FileManager.default.createFile(atPath: console.path, contents: nil, attributes: [.posixPermissions: 0o600])
         let handle = try FileHandle(forWritingTo: console); defer { try? handle.close() }
         try ManagementDefaults.installBeforeLaunch(paths:paths)
         let management = ManagedServer(paths: paths)
-        if management.enabled { try management.prepare() }
-        let launchExecutable = management.enabled ? management.executable : paths.executable
+        if management.loaderEnabled || management.hasDeployedCustomMods { try management.prepare(management: management.enabled, networking: management.networkingEnabled) }
+        let launchExecutable = management.loaderEnabled ? management.executable : paths.executable
         let child = Process(); child.executableURL = launchExecutable
-        child.currentDirectoryURL = management.enabled ? management.runtime : paths.server
+        child.currentDirectoryURL = management.loaderEnabled ? management.runtime : paths.server
         child.arguments = try profile.arguments(saveDirectory: store.saveDirectory(profile), log: log)
         var environment = ProcessInfo.processInfo.environment; environment["SteamAppId"] = "892970"
+        environment["VSM_WORLD_CONTROL_SETTINGS"] = paths.stateRoot.appendingPathComponent("world-control.json").path
         // The server depot omits steamclient.dylib. Use Valve's universal libraries already downloaded by SteamCMD.
         environment["DYLD_FALLBACK_LIBRARY_PATH"] = paths.file("runtime/steamcmd").path + ":/usr/local/lib:/usr/lib"
-        if management.enabled {
+        if management.loaderEnabled {
             environment["DOORSTOP_ENABLED"] = "1"
             environment["DOORSTOP_TARGET_ASSEMBLY"] = management.runtime.appendingPathComponent("BepInEx/core/BepInEx.Preloader.dll").path
             let injection = management.runtime.appendingPathComponent("libdoorstop.dylib").path
@@ -219,7 +231,7 @@ public final class Lifecycle {
                 managementReady = (try? management.connection().send("health"))?.hasPrefix("OK ManagerRcon") == true
                 if !managementReady && Date() >= managementDeadline { child.terminate(); sentStop = true; managementFailed = true }
             }
-            if requested("stop-request"), !sentStop { if management.enabled { child.terminate() } else { child.interrupt() }; sentStop = true }
+            if requested("stop-request"), !sentStop { if management.loaderEnabled { child.terminate() } else { child.interrupt() }; sentStop = true }
             Thread.sleep(forTimeInterval: 0.25)
         }
         child.waitUntilExit()

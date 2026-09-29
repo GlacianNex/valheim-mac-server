@@ -1,7 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
-version="${VERSION:-1.2.5}"
+version="${VERSION:-1.3.0}"
+channel="${RELEASE_CHANNEL:-stable}"
+[[ "$channel" == stable || "$channel" == experimental ]] || { echo 'RELEASE_CHANNEL must be stable or experimental' >&2; exit 1; }
+build_version="$version"
+if [[ "$channel" == experimental ]]; then build_version="$(date -u +%y%m%d.%H%M.%S)"; fi
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'VERSION must be major.minor.patch' >&2; exit 1; }
 if [[ -n "${SIGNING_IDENTITY:-}" ]]; then scripts/apple-preflight.sh; fi
 export MACOSX_DEPLOYMENT_TARGET=13.0
@@ -10,6 +14,7 @@ binary_dir="$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)
 app="dist/Valheim Server Manager for Mac.app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources" dist/AppIcon.iconset
 [[ -f dist/Management/manifest.json ]] || scripts/build-management.sh
+python3 scripts/bundle-network-plugins.py
 rm -rf "$app/Contents/Resources/Management"
 cp -R dist/Management "$app/Contents/Resources/Management"
 cp "$binary_dir/ValheimServerMonitor" "$app/Contents/MacOS/ValheimServerMonitor"
@@ -30,7 +35,8 @@ cat > "$app/Contents/Info.plist" <<PLIST
 <key>CFBundleExecutable</key><string>ValheimServerMonitor</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>$version</string>
-<key>CFBundleVersion</key><string>$version</string>
+<key>CFBundleVersion</key><string>$build_version</string>
+<key>VSMReleaseChannel</key><string>$channel</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>LSUIElement</key><true/>
 <key>CFBundleIconFile</key><string>AppIcon</string>

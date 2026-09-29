@@ -42,6 +42,37 @@ final class AppInstallationTests: XCTestCase {
         XCTAssertFalse(try FileManager.default.contentsOfDirectory(atPath: root.path).contains { $0.hasPrefix(".valheim-update-") })
     }
 
+    func testExperimentalPrecedenceWithoutIncreasingPublicVersion() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at:root) }
+        func app(_ name: String, _ version: String, experimental: Bool = false) throws -> URL {
+            let url = root.appendingPathComponent(name + ".app")
+            let info = ["CFBundleIdentifier":AppInstallation.bundleIdentifier,
+                        "CFBundleShortVersionString":version, "CFBundleVersion":"260927.1200.01",
+                        "VSMReleaseChannel":experimental ? "experimental" : "stable"]
+            try atomicWrite(PropertyListSerialization.data(fromPropertyList:info,format:.xml,options:0),to:url.appendingPathComponent("Contents/Info.plist"))
+            return url
+        }
+        let stable = try app("Stable","1.2.13")
+        let future = try app("Future","9.0.0")
+        let experiment = try app("Experiment","1.2.5",experimental:true)
+        let replacement = try app("Replacement","1.2.5",experimental:true)
+        XCTAssertTrue(try AppInstallation.canReplace(from:experiment,to:stable))
+        XCTAssertTrue(try AppInstallation.canReplace(from:experiment,to:future))
+        XCTAssertTrue(try AppInstallation.canReplace(from:replacement,to:experiment))
+        XCTAssertFalse(try AppInstallation.canReplace(from:future,to:experiment))
+        XCTAssertFalse(try AppInstallation.canReplace(from:stable,to:future))
+        XCTAssertTrue(try AppInstallation.canReplace(from:future,to:stable))
+        XCTAssertFalse(try AppInstallation.canReplace(from:stable,to:stable))
+        XCTAssertEqual(try AppInstallation.displayVersion(at:experiment),"Experimental")
+        XCTAssertEqual(try AppInstallation.displayVersion(at:stable),"1.2.13")
+        XCTAssertTrue(AppInstallation.isExperimental(Bundle(path:experiment.path)!))
+        XCTAssertFalse(AppInstallation.isExperimental(Bundle(path:stable.path)!))
+        // Experimental metadata must not bypass the existing code-signature gate.
+        XCTAssertThrowsError(try AppInstallation.update(from:experiment,to:stable) { XCTFail("Unsigned experiment must not close the installed app") })
+        XCTAssertEqual(try AppInstallation.version(at:stable),"1.2.13")
+    }
+
     func testApprovedCopyClearsOnlyCopiedQuarantine() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }

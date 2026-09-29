@@ -4,6 +4,8 @@ import ServerCore
 struct ServerStatusPlaceholder: Decodable {
     var state = "Checking…", players = "", code = "", profileName = "No profile", selected = "", detail = ""
     var running = false, autostart = false, monitorAtLogin = false, installed = false
+    var crossplay: Bool?
+    var port: Int?
     var managementEnabled: Bool?
     var automaticServerUpdates: Bool?
     var profiles: [Summary] = []
@@ -39,10 +41,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var managerProgress: NSWindow?
     var serverUpdateProgress: ServerUpdateProgress?
     var serverUpdate: ServerUpdateWindow?
+    var logViewers: [String:ServerLogsWindow] = [:]
     var setup: SetupWindow?
     let engine = Engine()
     let performanceRecorder = PerformanceRecorder()
     var displayed = ServerStatusPlaceholder()
+    var publicJoinIP: String?
+    var checkingJoinIP = false
+    var lastJoinIPCheck = Date.distantPast
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         AppLocation.prepare { ready in
@@ -110,6 +116,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self.refreshing = false
                 guard generation == self.statusGeneration else { self.refresh(); return }
                 self.displayed = parsed ?? ServerStatusPlaceholder()
+                self.checkJoinAddress()
                 if self.serverUpdate == nil, parsed != nil { self.serverUpdateProgress = nil }
                 for server in self.displayed.servers {
                     if self.pendingStarts[server.selected]?.observe(running: server.running) == true {
@@ -182,13 +189,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if serverUpdateAvailable { item.button?.toolTip?.append(" A Valheim server update is available. Open the menu to update.") }
         let menu = NSMenu(); menu.autoenablesItems = false
         let appVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Development"
-        let managerAvailable = managerRelease?.isNewer(than: appVersion) == true
+        let experimental = AppInstallation.isExperimental()
+        let managerAvailable = !experimental && managerRelease?.isNewer(than: appVersion) == true
         let managerState = installingManager ? "Updating…" : managerAvailable ? "Update Available" : checkingManager ? "Checking…" : managerCheckFailed ? "Check unavailable" : managerCheckDate == nil ? "Checking…" : "Up to date"
-        add(menu, "Valheim Manager · \(appVersion) · \(managerState)",
+        add(menu, experimental ? "Valheim Manager · Experimental" : "Valheim Manager · \(appVersion) · \(managerState)",
             managerAvailable ? #selector(managerVersionClicked) : nil,
             enabled: !busy && busyProfiles.isEmpty && !checkingManager && !installingManager && !starting && !stopping)
         if managerAvailable { menu.items.last?.image = updateBadge }
-        menu.items.last?.toolTip = managerAvailable
+        menu.items.last?.toolTip = experimental ? "Experimental build \(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown"). Public manager updates are disabled. Install a new experimental download to replace this build." : managerAvailable
             ? "Update manager to \(managerRelease!.version). Clicking downloads, verifies, and installs it automatically. Running servers save and stop, then restart after the update. Worlds and settings are preserved."
             : "Valheim Server Manager for Mac. Checks for manager updates on launch and every six hours."
         menu.addItem(.separator())
@@ -197,6 +205,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             menu.items.last?.image = updateBadge
             menu.items.last?.toolTip = serverUpdateProgress?.message ?? "A newer server build is available. Click to review the update before any servers are stopped."
             menu.addItem(.separator())
+        }
+        if serverUpdate != nil {
+            add(menu, "Show Restart / Update Progress…", #selector(showMaintenanceProgress))
         }
         for server in displayed.servers {
             let pending = pendingStarts[server.selected]?.pending == true
@@ -209,11 +220,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 add(serverMenu, title, selector, enabled: enabled)
                 serverMenu.items.last?.representedObject = server.selected
             }
-            if !serverStarting && !server.code.isEmpty { action("Join code: \(server.code) · Copy", #selector(copyServerCode(_:))) }
+            if server.crossplay == false, let port = server.port {
+                if let address = JoinAddress.endpoint(ip: publicJoinIP, port: port) {
+                    action("Join address: \(address) · Copy", #selector(copyServerAddress(_:)))
+                } else {
+                    action(checkingJoinIP ? "Join address: checking…" : "Join address unavailable · Retry", #selector(retryJoinAddress), enabled: !checkingJoinIP)
+                }
+                serverMenu.items.last?.toolTip = "For friends outside your network. Steam players only. Forward UDP ports \(port)–\(port + 1) to this Mac. This is your public IPv4 address; VPNs or shared ISP addresses can prevent connections. Port forwarding has not been verified."
+            } else if !serverStarting && !server.code.isEmpty { action("Join code: \(server.code) · Copy", #selector(copyServerCode(_:))) }
             else { add(serverMenu, "Join code: unavailable") }
             serverMenu.addItem(.separator())
             action(serverStarting ? "Starting Server…" : "Start Server", #selector(startProfile(_:)), enabled: !serverBusy && !serverActive && server.installed)
             action("Stop Server (Save & Stop)", #selector(stopProfile(_:)), enabled: !serverBusy && server.running)
+            action("Start Server at Login", #selector(profileAutostart(_:)), enabled: !serverBusy)
+            serverMenu.items.last?.state = server.autostart ? .on : .off
+            serverMenu.items.last?.toolTip = "Start this server when you log in to this Mac. Also configurable in Server Management → Automation."
             action("Server Management…", #selector(openManagement(_:)))
             let row = NSMenuItem(title: "\(server.profileName) — \(pending ? "Starting…" : server.state) · \(playerSummary)", action: nil, keyEquivalent: "")
             row.submenu = serverMenu; row.isEnabled = true
@@ -254,6 +275,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             startFeedback.begin()
             statusGeneration += 1
         }
+        if action == "stop" { self.startFeedback.cancel(); self.pendingStarts.removeAll(); statusGeneration += 1 }
         busy = true; rebuild()
         DispatchQueue.global(qos: .userInitiated).async {
             let result = self.command(action, args: args)
@@ -274,9 +296,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
     }
+    func cancelStartupFeedback(for id: String) {
+        startFeedback.cancel()
+        pendingStarts.removeValue(forKey: id)
+    }
     func profileAction(_ action: String, id: String) {
         guard !busy, !busyProfiles.contains(id) else { return }
         busyProfiles.insert(id)
+        if action == "stop" { cancelStartupFeedback(for: id) }
         if action == "start" { var feedback = StartFeedback(); feedback.begin(); pendingStarts[id] = feedback }
         statusGeneration += 1; rebuild()
         DispatchQueue.global(qos: .userInitiated).async {
@@ -305,6 +332,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func profileSettings(_ sender: NSMenuItem) {
         if let server = server(sender) { showEditor("get-profile", profileID: server.selected, readOnly: server.running || pendingStarts[server.selected]?.pending == true) }
     }
+    func checkJoinAddress(force: Bool = false) {
+        guard displayed.servers.contains(where: { $0.crossplay == false }), !checkingJoinIP,
+              force || Date().timeIntervalSince(lastJoinIPCheck) >= 300 else { return }
+        checkingJoinIP = true; lastJoinIPCheck = Date()
+        var request = URLRequest(url: URL(string: "https://api.ipify.org")!)
+        request.timeoutInterval = 10; request.cachePolicy = .reloadIgnoringLocalCacheData
+        URLSession.shared.dataTask(with: request) { data, response, _ in
+            let ip = (response as? HTTPURLResponse)?.statusCode == 200
+                ? data.flatMap { String(data: $0, encoding: .utf8) }.flatMap(JoinAddress.ipv4) : nil
+            DispatchQueue.main.async {
+                self.publicJoinIP = ip; self.checkingJoinIP = false; self.rebuild()
+            }
+        }.resume()
+    }
+    @objc func retryJoinAddress() { checkJoinAddress(force: true); rebuild() }
+    @objc func copyServerAddress(_ sender: NSMenuItem) {
+        guard let server = server(sender), let port = server.port,
+              let address = JoinAddress.endpoint(ip: publicJoinIP, port: port) else { return }
+        NSPasteboard.general.clearContents(); NSPasteboard.general.setString(address, forType: .string)
+    }
     @objc func copyServerCode(_ sender: NSMenuItem) {
         if let server = server(sender) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(server.code, forType: .string) }
     }
@@ -325,7 +372,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             delete: { [weak self] in
                 guard let self, !self.busy, !self.busyProfiles.contains(server.selected), !Lifecycle(paths:paths).isActive, self.pendingStarts[server.selected]?.pending != true else { return }
                 self.deleteProfile(sender)
-            })
+            }, serverAction: { [weak self] action in self?.profileAction(action,id:server.selected) })
     }
     @objc func disableManagement(_ sender: NSMenuItem) {
         guard let server = server(sender) else { return }
@@ -335,16 +382,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard let server = server(sender), !server.running else { return }
         profileAction("enable-management", id: server.selected)
     }
+    func showLogs(paths:Paths,name:String) {
+        let key = paths.stateRoot.path
+        if logViewers[key] == nil { logViewers[key] = ServerLogsWindow(paths:paths,name:name) }
+        logViewers[key]?.show()
+    }
     @objc func profileLog(_ sender: NSMenuItem) {
         guard let paths = pathsForServer(sender) else { return }
-        if let log = try? String(contentsOf: paths.file("latest-log"), encoding: .utf8), FileManager.default.fileExists(atPath: log) { NSWorkspace.shared.open(URL(fileURLWithPath: log)) }
-        else { try? paths.prepare(); NSWorkspace.shared.open(paths.logs) }
+        showLogs(paths:paths,name:server(sender)?.profileName ?? "Valheim")
     }
     @objc func profileFolder(_ sender: NSMenuItem) { if let paths = pathsForServer(sender) { try? paths.prepare(); NSWorkspace.shared.open(paths.logs) } }
     @objc func profileError(_ sender: NSMenuItem) { if let server = server(sender) { let alert = NSAlert(); alert.messageText = server.profileName; alert.informativeText = server.detail; alert.runModal() } }
     @objc func selectProfile(_ sender: NSMenuItem) { if let id = sender.representedObject as? String { perform("select-profile", args: [id]) } }
     func checkManagerVersion(force: Bool = false) {
-        guard !checkingManager, !installingManager,
+        guard !AppInstallation.isExperimental(), !checkingManager, !installingManager,
               force || managerCheckDate == nil || Date().timeIntervalSince(managerCheckDate!) >= 6 * 3600 else { return }
         checkingManager = true
         managerCheckDate = Date()
@@ -356,7 +407,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     @objc func managerVersionClicked() {
-        guard !busy, busyProfiles.isEmpty, !installingManager,
+        guard !AppInstallation.isExperimental(), !busy, serverUpdate == nil, busyProfiles.isEmpty, !installingManager,
               !pendingStarts.values.contains(where: { $0.pending }),
               !displayed.servers.contains(where: { $0.state == "Starting" || $0.state == "Stopping" }) else { return }
         let current = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
@@ -449,8 +500,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         beginServerUpdate()
     }
+    @objc func showMaintenanceProgress() {
+        serverUpdate?.window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
     func beginServerUpdate(automaticBuild: String? = nil, managementOnly: Bool = false, scheduledID: String? = nil, scheduledDeadline: Date? = nil) {
-        busy = true
+        guard serverUpdate == nil else { showMaintenanceProgress(); return }
         serverUpdateProgress = ServerUpdateProgress(.preparing, message: scheduledID == nil ? "Preparing the server update…" : "Preparing the scheduled restart…")
         rebuild()
         serverUpdate = ServerUpdateWindow(engine: engine, automaticBuild: automaticBuild, managementOnly: managementOnly, scheduledID: scheduledID, scheduledDeadline: scheduledDeadline, onProgress: { [weak self] progress in
@@ -459,8 +514,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.rebuild()
         }) { [weak self] in
             guard let self else { return }
-            self.busy = false; self.serverUpdate = nil
-            if self.serverUpdateProgress?.phase == .starting { self.startFeedback.begin() }
+            self.serverUpdate = nil
+            if self.serverUpdateProgress?.phase == .starting {
+                self.startFeedback.begin()
+                self.startFeedback.commandFinished(success: true)
+            }
             self.statusGeneration += 1
             self.checkServerVersion(force: true); self.refresh()
         }
@@ -491,8 +549,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func refreshNow() { checkManagerVersion(force: true); refresh() }
     @objc func copyCode() { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(displayed.code, forType: .string) }
     @objc func openLog() {
-        if let path = try? String(contentsOf: engine.paths.file("latest-log"), encoding: .utf8), FileManager.default.fileExists(atPath: path) { NSWorkspace.shared.open(URL(fileURLWithPath: path)) }
-        else { openFolder() }
+        let paths = (try? Store(paths:engine.paths).servicePaths(displayed.selected)) ?? engine.paths
+        showLogs(paths:paths,name:displayed.profileName)
     }
     @objc func openFolder() { NSWorkspace.shared.open(engine.paths.logs) }
     @objc func toggleMonitorLogin() { perform(displayed.monitorAtLogin ? "monitor-login-off" : "monitor-login-on") }

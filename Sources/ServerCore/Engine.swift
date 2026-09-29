@@ -7,7 +7,7 @@ public final class Engine {
         let store = try Store(paths: paths)
         let db = try store.load()
         let id = arguments.first ?? db.selected
-        let scopedActions: Set<String> = ["start", "stop", "get-profile", "autostart-on", "autostart-off", "delete-server", "management-info", "management-command", "enable-management", "disable-management"]
+        let scopedActions: Set<String> = ["start", "stop", "get-profile", "autostart-on", "autostart-off", "delete-server", "management-info", "management-command", "enable-management", "disable-management", "enable-networking", "disable-networking", "world-backups", "world-backup", "world-restore"]
         if scopedActions.contains(action), !db.profiles.contains(where: { $0.id == id }) { throw MonitorError("Profile not found.") }
         let servicePaths = store.servicePaths(id, database: db)
         let lifecycle = Lifecycle(paths: servicePaths)
@@ -57,6 +57,13 @@ public final class Engine {
         case "automatic-server-updates-off":
             try store.update { $0.automaticServerUpdates = false }
         case "install": try Installer(paths: paths).install()
+        case "world-backups": return String(decoding:try encode(WorldBackups(paths:servicePaths).list()),as:UTF8.self)
+        case "world-backup":
+            guard arguments.count == 2 else { throw MonitorError("Choose a backup name.") }
+            return String(decoding:try encode(WorldBackups(paths:servicePaths).create(name:arguments[1])),as:UTF8.self)
+        case "world-restore":
+            guard arguments.count == 2 else { throw MonitorError("Choose a backup identifier.") }
+            try WorldBackups(paths:servicePaths).restore(id:arguments[1])
         case "management-info":
             return try ManagedServer(paths: servicePaths).connection().send("serverInfo")
         case "management-command":
@@ -65,6 +72,10 @@ public final class Engine {
             guard ["kick", "ban", "unban"].contains(action), arguments.count == 3,
                   !arguments[2].contains("\n"), !arguments[2].isEmpty else { throw MonitorError("Invalid moderation command.") }
             return try ManagedServer(paths: servicePaths).moderate(action:action,target:arguments[2])
+        case "enable-networking", "disable-networking":
+            guard db.profiles.contains(where: { $0.id == id }), !lifecycle.isActive else { throw MonitorError("Stop the server before changing network optimization.") }
+            try store.update { if $0.networkOptimizations == nil { $0.networkOptimizations = [:] }; $0.networkOptimizations?[id] = action == "enable-networking" }
+            return "OK"
         case "enable-management", "disable-management":
             guard db.profiles.contains(where: { $0.id == id }), !lifecycle.isActive else { throw MonitorError("Stop the server before changing management support.") }
             try store.update { if $0.managedServers == nil { $0.managedServers = [:] }; $0.managedServers?[id] = action == "enable-management" }

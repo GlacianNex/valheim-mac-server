@@ -15,6 +15,14 @@ final class StartFeedbackTests: XCTestCase {
         XCTAssertFalse(feedback.observe(running: true, now: now.addingTimeInterval(62)))
         XCTAssertFalse(feedback.pending)
     }
+    func testManualStopCancelsPendingStartWithoutReportingStartupFailure() {
+        var feedback = StartFeedback()
+        feedback.begin()
+        feedback.commandFinished(success: true)
+        feedback.cancel()
+        XCTAssertFalse(feedback.pending)
+        XCTAssertFalse(feedback.observe(running: false, now: Date().addingTimeInterval(60)))
+    }
     func testFailureAndUnconfirmedStartDoNotLeavePermanentStartingState() {
         var feedback = StartFeedback()
         let now = Date()

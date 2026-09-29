@@ -12,3 +12,6 @@ dist/
 *.keychain-db
 Companion/bin/
 Companion/obj/
+
+__pycache__/
+*.pyc

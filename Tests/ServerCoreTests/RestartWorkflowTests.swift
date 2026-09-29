@@ -26,6 +26,26 @@ final class RestartWorkflowTests: XCTestCase {
         let badInstall = RestartWorkflow(validate:{},warn:{_ in},stop:{stopped = true},install:{throw MonitorError("verification failed")},start:{started = true},progress:{_ in})
         XCTAssertThrowsError(try badInstall.run(deadline:nil)); XCTAssertTrue(stopped); XCTAssertFalse(started)
     }
+    func testRestartNowSkipsWaitButKeepsValidationAndLifecycleOrder() throws {
+        var now = Date(), immediate = false, checks = 0
+        var actions: [String] = []
+        var w = RestartWorkflow(validate:{ checks += 1 },warn:{_ in},stop:{actions.append("stop")},install:{actions.append("install")},start:{actions.append("start")},progress:{_ in})
+        w.now = { now }; w.sleep = { now.addTimeInterval($0); immediate = true }
+        w.restartNow = { immediate }
+        let began = now
+        try w.run(deadline:now.addingTimeInterval(900))
+        XCTAssertEqual(now.timeIntervalSince(began), 1)
+        XCTAssertEqual(actions, ["stop", "install", "start"])
+        XCTAssertEqual(checks, 3)
+    }
+    func testCancelWinsOverRestartNowDuringCountdown() {
+        var now = Date(), cancelled = false, stopped = false
+        var w = RestartWorkflow(validate:{ if cancelled { throw MonitorError("cancelled") } },warn:{_ in},stop:{stopped = true},install:{XCTFail("must not install")},start:{XCTFail("must not start")},progress:{_ in})
+        w.now = { now }; w.sleep = { now.addTimeInterval($0); cancelled = true }
+        w.restartNow = { cancelled }
+        XCTAssertThrowsError(try w.run(deadline:now.addingTimeInterval(900)))
+        XCTAssertFalse(stopped)
+    }
     func testScheduledRestartDoesNotReportUpdating() throws {
         var phases: [ServerUpdateProgress.Phase] = []
         let w = RestartWorkflow(validate:{},warn:{_ in},stop:{},install:{},start:{},progress:{phases.append($0.phase)})

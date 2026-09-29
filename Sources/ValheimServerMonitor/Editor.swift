@@ -131,6 +131,8 @@ class ProfileEditor: NSObject, NSWindowDelegate, NSTextFieldDelegate {
         }
         row("password","Password",nil,false,true)
         note("Listed servers require a password of at least five characters. Unlisted servers remain accessible by address or join code; any existing password is preserved.")
+        row("maxPlayers","Player limit",[""] + (1...60).filter { $0 != 10 }.map(String.init))
+        note("For best performance, keep the player limit at Default (10 players). Custom limits apply only when Network Optimization Mods is enabled.")
         row("port","Port");row("crossplay","Crossplay",nil,true);row("instanceid","Instance ID (optional)")
         note("Without crossplay, remote connections require router forwarding for the selected UDP port and the next port.")
         section("Saving & Backups")
@@ -149,9 +151,6 @@ class ProfileEditor: NSObject, NSWindowDelegate, NSTextFieldDelegate {
         row("Portals","Portals",["","casual","hard","veryhard"])
         updateModifierDefaultTitles()
         row("nobuildcost","No build cost",nil,true);row("playerevents","Player-based raids",nil,true);row("passivemobs","Passive enemies",nil,true);row("nomap","No map",nil,true);row("fire","Spreading fire hazards",nil,true)
-        section("Access Lists")
-        note("Enter platform IDs separated by commas or newlines. A nonempty permitted list excludes everyone else.")
-        row("admins","Admin IDs");row("banned","Banned IDs");row("permitted","Permitted IDs")
         section("Advanced")
         row("extra","Additional arguments")
         note("Space-separated arguments; quote values containing spaces. Do not duplicate fields above. Save and log paths are managed by the app. Changes apply on the next start.")
@@ -247,7 +246,6 @@ class ProfileEditor: NSObject, NSWindowDelegate, NSTextFieldDelegate {
         for (key, saved) in inheritedFlags {
             if let button = fields[key] as? NSButton, (button.state == .on) == saved { p[key] = original[key] }
         }
-        for key in ["admins","banned","permitted"] {p[key]=(p[key] as? String ?? "").replacingOccurrences(of:",",with:"\n")}
         if !(original["id"] as? String ?? "").isEmpty { p["seed"] = original["seed"] ?? "" }
         p["import"]=selectedImport;onSave(p)
     }

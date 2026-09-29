@@ -20,6 +20,8 @@ public final class MaintenanceLease {
 public struct RestartWorkflow {
     public var now: () -> Date = Date.init
     public var sleep: (TimeInterval) -> Void = Thread.sleep(forTimeInterval:)
+    /// Skip only the wait; validation and the normal save/stop/start sequence still run.
+    public var restartNow: () -> Bool = { false }
     public var validate: () throws -> Void
     public var warn: (Int) throws -> Void
     public var stop: () throws -> Void
@@ -36,6 +38,7 @@ public struct RestartWorkflow {
             var countdown = UpdateCountdown(now: deadline.addingTimeInterval(-UpdateCountdown.duration))
             while countdown.remaining(at: now()) > 0 {
                 try validate()
+                if restartNow() { break }
                 if let minutes = countdown.warning(at: now()) { try warn(minutes) }
                 let left = Int(ceil(countdown.remaining(at: now())))
                 progress(ServerUpdateProgress(.countdown, message: String(format: "Restart in %d:%02d",left/60,left%60)))

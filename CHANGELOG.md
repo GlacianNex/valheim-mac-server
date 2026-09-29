@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.0 — 2026-09-29
+
+Mod catalog and dependency management, world controls, dedicated backups, optional network optimization, Steam-only ping graphs, and an integrated live log viewer. Includes installation, restart, and status fixes.
+
+See the [full 1.3 release notes](docs/RELEASE-NOTES-1.3.md), including TL;DR, Features, and Bug Fixes.
+
 ## 1.1.7 — 2026-09-18
 
 - Show Stopping → Updating → Starting promptly in the menu bar, with reported percentages and elapsed stage time in the update window.
