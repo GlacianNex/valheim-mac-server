@@ -40,3 +40,14 @@ After each authorized public release is published and its download links are ver
 Include the product name and version, a short TL;DR of the main features and fixes, the exact GitHub release link, and a pointer to #support with the Valheim tag for problems. Keep the tone plain and brief. Avoid @everyone or @here. Before sending, check recent announcements for that release URL/tag to prevent duplicates. Verify the posted message and record its Discord permalink in the release handoff. If sending fails or requires connector approval, report the blocker; do not claim it was posted or retry an ambiguous send without checking the channel.
 
 The community monitor checks #valheim, relevant #general discussions, announcement replies, and Valheim support/feedback forum posts. Monitoring stays read-only; support replies require separate user authorization.
+
+### Required Discord completion checks
+
+Every future public Valheim Server Manager release must complete both steps, as authorized by the project owner:
+
+1. Post and verify the release announcement in #announcements using the instructions above.
+2. Edit the existing pinned Nex Bot message in [#valheim](https://discord.com/channels/1555583995851313254/1556044894827716678/1556045361888370728), message `1556045361888370728`. Keep the project introduction and support links. Replace the latest-release version and summary, link to the exact published GitHub release and the newly verified Discord announcement. Edit this message in place; do not create a new pin for every release. Keep it pinned and suppress mass mentions.
+
+Read back both messages, confirm the version, URLs, summary and pinned state, and record both permalinks in the release handoff. Do not mark release communications complete if either step fails; report the remaining step. If the pinned message is missing or no longer editable, report it rather than silently creating duplicates. Rollbacks or withdrawn releases must point the pin to the current supported public release instead of a superseded download.
+
+This applies to public manager releases, not Valve game-server updates, drafts, local Experimental builds, or CI artifacts. The scheduled monitor flags missing announcements or stale pins but does not publish or edit them itself.
