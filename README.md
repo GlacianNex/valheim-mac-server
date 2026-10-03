@@ -2,7 +2,7 @@
 
 Host Valheim worlds for your friends from your Mac. This native macOS menu bar app downloads the dedicated server, creates or imports worlds, and runs multiple servers without leaving a terminal open.
 
-**[Download for Mac](https://github.com/GlacianNex/valheim-mac-server/releases/latest)** · [What's new in 1.3](docs/RELEASE-NOTES-1.3.md) · [Setup and recovery](docs/SETUP.md)
+**[Download for Mac](https://github.com/GlacianNex/valheim-mac-server/releases/latest)** · [What's new in 1.3](docs/RELEASE-NOTES-1.3.md) · [Setup and recovery](docs/SETUP.md) · [Discord support](https://discord.gg/3bbVNFjPTm)
 
 Requires **macOS 13 Ventura or later**. The download includes Apple Silicon and Intel binaries and is Developer ID signed and Apple-notarized. No running Steam client, Steam account, CrossOver or separate plugin installation is needed.
 
@@ -99,6 +99,17 @@ The manager controls only its own servers, identifying them by PID, executable p
 Menu-bar player counts use the latest count reported in server logs. The management companion reports count changes for both Steam and crossplay servers, checking once a second and repeating the count every minute. Without management tools, counts depend on the official server’s log messages and may be delayed or unavailable. The management window queries connected players through the companion. This is not an in-game activity history or a remote administration service.
 
 Native runtime tests run on Apple Silicon; the Intel app has also been tested under Rosetta. Physical Intel and macOS 13 hardware coverage remains pending. See [verification and coverage limits](docs/VERIFICATION.md).
+
+## Support and community
+
+Join **[Nex Labs on Discord](https://discord.gg/3bbVNFjPTm)**, the official support community for this manager.
+
+- **#support:** create a post with the **Valheim** tag for bugs or setup help. Include your manager version, macOS version, Mac model and relevant logs with passwords and tokens removed.
+- **#valheim:** questions, hosting tips and discussion.
+- **#ideas-and-feedback:** suggestions and feature requests, tagged **Valheim**.
+- **#announcements:** public releases and important updates.
+
+You can also report bugs through [GitHub issues](https://github.com/GlacianNex/valheim-mac-server/issues).
 
 ## Build and contribute
 

@@ -30,3 +30,13 @@ The manual Prepare release workflow builds and creates a draft. Signed drafts re
 - APPLE_ID, APPLE_TEAM_ID, APPLE_APP_SPECIFIC_PASSWORD — notarization credentials.
 
 The workflow uses a temporary keychain and removes signing material afterward. Unsigned drafts are development prereleases. The ordinary CI artifact is also an unnotarized development build, not the public download. Never put signing credentials or world data in source control.
+
+## Announce public releases on Discord
+
+Nex Labs is the official support community: https://discord.gg/3bbVNFjPTm.
+
+After each authorized public release is published and its download links are verified, post one concise announcement in [#announcements](https://discord.com/channels/1555583995851313254/1556044893632073819) (server `1555583995851313254`, channel `1556044893632073819`). This is part of the public release workflow requested by the project owner. Do not announce drafts, CI artifacts or local Experimental builds.
+
+Include the product name and version, a short TL;DR of the main features and fixes, the exact GitHub release link, and a pointer to #support with the Valheim tag for problems. Keep the tone plain and brief. Avoid @everyone or @here. Before sending, check recent announcements for that release URL/tag to prevent duplicates. Verify the posted message and record its Discord permalink in the release handoff. If sending fails or requires connector approval, report the blocker; do not claim it was posted or retry an ambiguous send without checking the channel.
+
+The community monitor checks #valheim, relevant #general discussions, announcement replies, and Valheim support/feedback forum posts. Monitoring stays read-only; support replies require separate user authorization.
